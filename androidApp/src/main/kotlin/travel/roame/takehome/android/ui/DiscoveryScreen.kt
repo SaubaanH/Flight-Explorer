@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -103,7 +104,10 @@ fun SharedTransitionScope.DiscoveryScreen(
                         enter = EnterTransition.None,
                         exit = ExitTransition.None,
                         boundsTransform = { _, _ -> SearchSharedSpring },
-                        resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
+                        resizeMode = SharedTransitionScope.ResizeMode.ScaleToBounds(
+                            contentScale = ContentScale.FillBounds,
+                            alignment = Alignment.TopCenter,
+                        ),
                         clipInOverlayDuringTransition = OverlayClip(RoameShapes.Panel),
                     ),
                 )
