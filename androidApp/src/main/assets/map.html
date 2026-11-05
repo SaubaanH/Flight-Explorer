@@ -19,6 +19,23 @@
     box-shadow:0 2px 8px rgba(0,0,0,.25); white-space:nowrap;
     border:1px solid rgba(255,255,255,.35);
   }
+  /* Force attribution to a small "i" chip — the expanded bar eats the detail-sheet map. */
+  .maplibregl-ctrl-attrib {
+    max-width: 40% !important;
+  }
+  .maplibregl-ctrl-attrib.maplibregl-compact:not([open]):not(.maplibregl-compact-show) {
+    min-width: 24px !important;
+    width: 24px !important;
+    height: 24px !important;
+    padding: 0 !important;
+    margin: 0 6px 6px 0 !important;
+    background: rgba(255,255,255,0.92) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.08);
+  }
+  .maplibregl-ctrl-attrib.maplibregl-compact:not([open]):not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-inner {
+    display: none !important;
+  }
 </style>
 </head>
 <body>
@@ -70,9 +87,19 @@
       style: style,
       center: [0, 20],
       zoom: 1.2,
-      attributionControl: true
+      attributionControl: false
     });
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    map.on('load', () => {
+      // Emulator/detail sheet is "wide", so MapLibre may expand attribution — keep the chip.
+      const el = map.getContainer().querySelector('.maplibregl-ctrl-attrib');
+      if (el) {
+        el.classList.add('maplibregl-compact');
+        el.classList.remove('maplibregl-compact-show');
+        el.removeAttribute('open');
+      }
+    });
     map.on('error', (e) => {
       const msg = (e && e.error && e.error.message) ? e.error.message : 'Map tile error';
       console.log('map error', msg);
@@ -80,7 +107,7 @@
         styleIndex += 1;
         try { map.remove(); } catch (_) {}
         routeSourceReady = false;
-        lastMarkerKey = '';
+        lastMarkerKey = null;
         createMap(STYLES[styleIndex]);
       } else {
         showStatus(msg);

@@ -59,7 +59,7 @@ fun FlightMap(
                 settings.allowFileAccess = true
                 settings.allowContentAccess = true
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                settings.cacheMode = WebSettings.LOAD_DEFAULT
+                settings.cacheMode = WebSettings.LOAD_NO_CACHE
                 addJavascriptInterface(bridge, "AndroidBridge")
                 tag = ""
                 webChromeClient = object : WebChromeClient() {
@@ -78,7 +78,8 @@ fun FlightMap(
                         view?.evaluateJavascript(js, null)
                     }
                 }
-                loadUrl("file:///android_asset/map.html")
+                // Cache-bust so asset edits (attribution compact, etc.) show up on reinstall.
+                loadUrl("file:///android_asset/map.html?v=4")
             }
         },
         update = { webView ->
