@@ -2,11 +2,11 @@ import Foundation
 import Shared
 import Combine
 
-/// Observable bridge over the shared `FlightExplorer` facade.
-/// Polls StateFlow `.value` so SwiftUI stays in lockstep without SKIE.
+/// Observable bridge over shared `FlightExplorer` via `FlightExplorerIos` snapshots.
 @MainActor
 final class FlightExplorerModel: ObservableObject {
-    let explorer: FlightExplorer
+    private let host: FlightExplorerIos
+    var explorer: FlightExplorer { host.explorer }
 
     @Published var originText: String = ""
     @Published var destinationText: String = ""
@@ -31,28 +31,21 @@ final class FlightExplorerModel: ObservableObject {
     @Published var resultCount: Int = 0
     @Published var saveError: String? = nil
 
-    private var timer: Timer?
-
     init(baseUrl: String = ApiBaseUrls.shared.IOS_SIMULATOR) {
-        explorer = FlightExplorerFactory.shared.create(
-            baseUrl: baseUrl,
-            driverFactory: DatabaseDriverFactory()
-        )
-        timer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+        host = FlightExplorerIos(baseUrl: baseUrl)
+        host.start { [weak self] snapshot in
             Task { @MainActor in
-                self?.pull()
+                self?.apply(snapshot)
             }
         }
-        pull()
     }
 
     deinit {
-        timer?.invalidate()
-        explorer.close()
+        host.close()
     }
 
-    func pull() {
-        let filters = explorer.filters.value
+    private func apply(_ snap: FlightUiSnapshot) {
+        let filters = snap.filters
         dateFrom = filters.dateFrom
         dateTo = filters.dateTo
         cabin = filters.cabin
@@ -64,31 +57,28 @@ final class FlightExplorerModel: ObservableObject {
         }
         var programs = Set<String>()
         for item in filters.programs {
-            if let program = item as? String {
-                programs.insert(program)
-            }
+            if let program = item as? String { programs.insert(program) }
         }
         selectedPrograms = programs
 
-        filteredFlights = (explorer.filteredFlights.value as? [Any] ?? []).compactMap { $0 as? Flight }
-        clusters = (explorer.clusters.value as? [Any] ?? []).compactMap { $0 as? DestinationCluster }
-        selectedFlight = explorer.selectedFlight.value
-        savedFlights = (explorer.savedFlights.value as? [Any] ?? []).compactMap { $0 as? Flight }
+        filteredFlights = snap.filteredFlights
+        clusters = snap.clusters
+        selectedFlight = snap.selectedFlight
+        savedFlights = snap.savedFlights
         var ids = Set<String>()
-        for item in explorer.savedIds.value {
+        for item in snap.savedIds {
             if let id = item as? String { ids.insert(id) }
         }
         savedIds = ids
-        browsingCluster = explorer.browsingCluster.value
+        browsingCluster = snap.browsingCluster
         resultCount = filteredFlights.count
-        saveError = explorer.saveError.value
+        saveError = snap.saveError
 
-        let status = explorer.status.value
-        let kind = status.kind
+        let kind = snap.status.kind
         isLoading = kind == "loading"
         isOfflineStale = kind == "offline_stale"
         isError = kind == "error"
-        errorMessage = status.errorMessageOrNull ?? ""
+        errorMessage = snap.status.errorMessageOrNull ?? ""
     }
 
     func refresh() { explorer.refresh() }
