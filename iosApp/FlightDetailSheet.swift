@@ -94,11 +94,16 @@ private struct RoutePreviewMap: View {
         // Explicit camera binding keeps MapKit from reframing to the long-way
         // bounds of origin/destination when the short path crosses the dateline.
         Map(position: $cameraPosition) {
-            Marker(flight.origin, coordinate: geometry.origin)
-            Marker(flight.destination, coordinate: geometry.destination)
             ForEach(Array(geometry.polylines.enumerated()), id: \.offset) { _, coords in
                 MapPolyline(coordinates: coords)
                     .stroke(RoameTheme.pink, lineWidth: 3)
+            }
+            // Compact dots — Marker pins steal edge padding and crowd long-haul frames.
+            Annotation(flight.origin, coordinate: geometry.origin, anchor: .center) {
+                routeEndpointDot
+            }
+            Annotation(flight.destination, coordinate: geometry.destination, anchor: .center) {
+                routeEndpointDot
             }
         }
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
@@ -107,5 +112,12 @@ private struct RoutePreviewMap: View {
         .onAppear {
             cameraPosition = .region(geometry.region)
         }
+    }
+
+    private var routeEndpointDot: some View {
+        Circle()
+            .fill(RoameTheme.pink)
+            .frame(width: 10, height: 10)
+            .overlay(Circle().stroke(Color.white, lineWidth: 2))
     }
 }

@@ -167,7 +167,7 @@
             [Math.min(route.oLng, dLngShort), Math.min(route.oLat, route.dLat)],
             [Math.max(route.oLng, dLngShort), Math.max(route.oLat, route.dLat)]
           );
-          map.fitBounds(routeBounds, { padding: 48, maxZoom: 4, duration: 400 });
+          map.fitBounds(routeBounds, { padding: 56, maxZoom: 3.5, duration: 400 });
         } else {
           bounds.extend([route.oLng, route.oLat]);
           bounds.extend([route.dLng, route.dLat]);
