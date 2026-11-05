@@ -144,27 +144,41 @@
       (markers || []).forEach(m => bounds.extend([m.lng, m.lat]));
     }
 
+    const hasMarkers = (markers || []).length > 0;
+
     if (map.isStyleLoaded()) {
       ensureRouteLayer();
       if (route) {
+        // Short-path lon (handles Pacific crossings like SEA → SYD).
+        let delta = route.dLng - route.oLng;
+        while (delta > 180) delta -= 360;
+        while (delta < -180) delta += 360;
+        const dLngShort = route.oLng + delta;
         map.getSource('route').setData({
           type: 'Feature',
           geometry: {
             type: 'LineString',
-            coordinates: [[route.oLng, route.oLat], [route.dLng, route.dLat]]
+            coordinates: [[route.oLng, route.oLat], [dLngShort, route.dLat]]
           }
         });
-        bounds.extend([route.oLng, route.oLat]);
-        bounds.extend([route.dLng, route.dLat]);
+        if (!hasMarkers) {
+          // Route-only preview: fit to the short arc, not the long way via Africa.
+          const routeBounds = new maplibregl.LngLatBounds(
+            [Math.min(route.oLng, dLngShort), Math.min(route.oLat, route.dLat)],
+            [Math.max(route.oLng, dLngShort), Math.max(route.oLat, route.dLat)]
+          );
+          map.fitBounds(routeBounds, { padding: 48, maxZoom: 4, duration: 400 });
+        } else {
+          bounds.extend([route.oLng, route.oLat]);
+          bounds.extend([route.dLng, route.dLat]);
+        }
       } else if (map.getSource('route')) {
         map.getSource('route').setData({ type: 'FeatureCollection', features: [] });
       }
     }
 
-    // Fit when markers change. Also fit for route-only previews (detail sheet has no markers).
-    // Selection changes on the Discover map keep the camera steady.
-    const hasMarkers = (markers || []).length > 0;
-    if (!bounds.isEmpty() && (markersChanged || (!hasMarkers && route))) {
+    // Fit when markers change. Route-only previews fit above.
+    if (hasMarkers && markersChanged && !bounds.isEmpty()) {
       map.fitBounds(bounds, { padding: 48, maxZoom: 5, duration: 500 });
     }
   }

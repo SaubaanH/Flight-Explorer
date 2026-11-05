@@ -33,16 +33,14 @@ struct FlightMapView: View {
             }
 
             if let flight = model.selectedFlight {
-                MapPolyline(coordinates: [
-                    CLLocationCoordinate2D(latitude: flight.originLatitude, longitude: flight.originLongitude),
-                    CLLocationCoordinate2D(latitude: flight.destinationLatitude, longitude: flight.destinationLongitude),
-                ])
-                .stroke(RoameTheme.pink, lineWidth: 3)
+                let geometry = RouteMapGeometry.route(for: flight)
+                ForEach(Array(geometry.polylines.enumerated()), id: \.offset) { _, coords in
+                    MapPolyline(coordinates: coords)
+                        .stroke(RoameTheme.pink, lineWidth: 3)
+                }
 
-                Marker(flight.origin, coordinate: CLLocationCoordinate2D(
-                    latitude: flight.originLatitude,
-                    longitude: flight.originLongitude
-                ))
+                Marker(flight.origin, coordinate: geometry.origin)
+                Marker(flight.destination, coordinate: geometry.destination)
             }
         }
         .mapControls {

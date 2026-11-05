@@ -28,6 +28,7 @@ struct FlightDetailSheet: View {
             }
 
             RoutePreviewMap(flight: flight)
+                .id(flight.id)
                 .frame(height: 180)
                 .background(RoameTheme.canvas)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -77,40 +78,34 @@ struct FlightDetailSheet: View {
 
 private struct RoutePreviewMap: View {
     let flight: Flight
+    @State private var cameraPosition: MapCameraPosition
 
-    private var origin: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: flight.originLatitude, longitude: flight.originLongitude)
+    init(flight: Flight) {
+        self.flight = flight
+        let geometry = RouteMapGeometry.route(for: flight)
+        _cameraPosition = State(initialValue: .region(geometry.region))
     }
 
-    private var destination: CLLocationCoordinate2D {
-        CLLocationCoordinate2D(latitude: flight.destinationLatitude, longitude: flight.destinationLongitude)
-    }
-
-    private var camera: MapCameraPosition {
-        let minLat = min(origin.latitude, destination.latitude)
-        let maxLat = max(origin.latitude, destination.latitude)
-        let minLng = min(origin.longitude, destination.longitude)
-        let maxLng = max(origin.longitude, destination.longitude)
-        let center = CLLocationCoordinate2D(
-            latitude: (minLat + maxLat) / 2,
-            longitude: (minLng + maxLng) / 2
-        )
-        let latDelta = max((maxLat - minLat) * 1.6, 8)
-        let lngDelta = max((maxLng - minLng) * 1.6, 8)
-        return .region(MKCoordinateRegion(
-            center: center,
-            span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lngDelta)
-        ))
+    private var geometry: RouteMapGeometry.Route {
+        RouteMapGeometry.route(for: flight)
     }
 
     var body: some View {
-        Map(initialPosition: camera) {
-            Marker(flight.origin, coordinate: origin)
-            Marker(flight.destination, coordinate: destination)
-            MapPolyline(coordinates: [origin, destination])
-                .stroke(RoameTheme.pink, lineWidth: 3)
+        // Explicit camera binding keeps MapKit from reframing to the long-way
+        // bounds of origin/destination when the short path crosses the dateline.
+        Map(position: $cameraPosition) {
+            Marker(flight.origin, coordinate: geometry.origin)
+            Marker(flight.destination, coordinate: geometry.destination)
+            ForEach(Array(geometry.polylines.enumerated()), id: \.offset) { _, coords in
+                MapPolyline(coordinates: coords)
+                    .stroke(RoameTheme.pink, lineWidth: 3)
+            }
         }
-        .mapStyle(.standard(elevation: .flat))
+        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .disabled(true)
+        .mapControlVisibility(.hidden)
+        .onAppear {
+            cameraPosition = .region(geometry.region)
+        }
     }
 }
