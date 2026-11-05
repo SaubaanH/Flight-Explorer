@@ -55,7 +55,7 @@ struct FlightMapView: View {
             NavigationStack {
                 List(item.cluster.flights as? [Flight] ?? [], id: \.id) { flight in
                     FlightRowView(
-                        flight: flight,
+                        card: FlightCard(flight),
                         selected: model.selectedFlight?.id == flight.id,
                         saved: model.isSaved(flight.id),
                         onTap: {

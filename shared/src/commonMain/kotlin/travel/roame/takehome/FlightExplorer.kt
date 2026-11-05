@@ -35,6 +35,10 @@ class FlightExplorer(
     private val _filteredFlights = MutableStateFlow<List<Flight>>(emptyList())
     val filteredFlights: StateFlow<List<Flight>> = _filteredFlights.asStateFlow()
 
+    /** Bumps only when [filteredFlights] is recomputed — iOS uses this to skip re-bridging. */
+    private val _filteredGeneration = MutableStateFlow(0L)
+    val filteredGeneration: StateFlow<Long> = _filteredGeneration.asStateFlow()
+
     private val _clusters = MutableStateFlow<List<DestinationCluster>>(emptyList())
     val clusters: StateFlow<List<DestinationCluster>> = _clusters.asStateFlow()
 
@@ -231,6 +235,7 @@ class FlightExplorer(
             MapAggregator.byDestination(filtered)
         }
         _filteredFlights.value = filtered
+        _filteredGeneration.update { it + 1 }
         _clusters.value = clusters
         val kept = SearchFilterEngine.clearSelectionIfFilteredOut(_selectedFlightId.value, filtered)
         if (kept != _selectedFlightId.value) {
@@ -271,6 +276,6 @@ class FlightExplorer(
     companion object {
         const val SEARCH_DEBOUNCE_MS: Long = 250L
         /** Initial / incremental page size for Discover list UIs. */
-        const val LIST_PAGE_SIZE: Int = 40
+        const val LIST_PAGE_SIZE: Int = 24
     }
 }

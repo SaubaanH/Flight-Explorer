@@ -7,14 +7,14 @@ struct DiscoveryView: View {
     @State private var isSearching = false
     @State private var pane: Pane = .list
     /// Matches `FlightExplorer.LIST_PAGE_SIZE` — keep in sync.
-    @State private var listLimit = 40
+    @State private var listLimit = 24
 
     private enum Pane: String, CaseIterable {
         case list = "List"
         case map = "Map"
     }
 
-    private let pageSize = 40
+    private let pageSize = 24
 
     private var spring: Animation {
         .spring(duration: 0.35, bounce: 0.15)
@@ -85,20 +85,20 @@ struct DiscoveryView: View {
             ZStack(alignment: .bottom) {
                 switch pane {
                 case .list:
-                    if model.filteredFlights.isEmpty && !model.isLoading && !model.isError {
+                    if model.flightCards.isEmpty && !model.isLoading && !model.isError {
                         ContentUnavailableView("No flights match these filters.", systemImage: "airplane")
                             .foregroundStyle(RoameTheme.muted)
                     } else {
                         WindowedFlightList(
-                            flights: model.filteredFlights,
+                            cards: model.flightCards,
                             selectedId: model.selectedFlight?.id,
-                            isSaved: model.isSaved,
+                            savedIds: model.savedIds,
                             listLimit: $listLimit,
                             pageSize: pageSize,
                             onSelect: { model.select($0) }
                         )
                         .onChange(of: model.resultCount) { _, _ in
-                            listLimit = min(pageSize, model.filteredFlights.count)
+                            listLimit = min(pageSize, model.flightCards.count)
                         }
                     }
                 case .map:
@@ -158,41 +158,42 @@ struct DiscoveryView: View {
 }
 
 private struct WindowedFlightList: View {
-    let flights: [Flight]
+    let cards: [FlightCard]
     let selectedId: String?
-    let isSaved: (String) -> Bool
+    let savedIds: Set<String>
     @Binding var listLimit: Int
     let pageSize: Int
     let onSelect: (String) -> Void
 
     var body: some View {
-        let shown = Array(flights.prefix(listLimit))
+        let shown = Array(cards.prefix(listLimit))
         List {
-            ForEach(shown, id: \.id) { flight in
+            ForEach(shown) { card in
                 FlightRowView(
-                    flight: flight,
-                    selected: selectedId == flight.id,
-                    saved: isSaved(flight.id),
-                    onTap: { onSelect(flight.id) }
+                    card: card,
+                    selected: selectedId == card.id,
+                    saved: savedIds.contains(card.id),
+                    onTap: { onSelect(card.id) }
                 )
-                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
             }
-            if listLimit < flights.count {
-                Text("Showing \(listLimit) of \(flights.count)…")
+            if listLimit < cards.count {
+                Text("Showing \(listLimit) of \(cards.count)…")
                     .font(.caption)
                     .foregroundStyle(RoameTheme.muted)
                     .frame(maxWidth: .infinity)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                     .onAppear {
-                        listLimit = min(listLimit + pageSize, flights.count)
+                        listLimit = min(listLimit + pageSize, cards.count)
                     }
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .environment(\.defaultMinListRowHeight, 1)
         .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 140) }
     }
 }

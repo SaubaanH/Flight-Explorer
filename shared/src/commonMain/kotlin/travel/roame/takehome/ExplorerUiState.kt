@@ -13,6 +13,7 @@ import travel.roame.takehome.model.LoadStatus
 data class ExplorerUiState(
     val filters: FlightFilters = FlightFilters.defaults(),
     val filteredFlights: List<Flight> = emptyList(),
+    val filteredGeneration: Long = 0L,
     val clusters: List<DestinationCluster> = emptyList(),
     val selectedFlight: Flight? = null,
     val savedFlights: List<Flight> = emptyList(),
@@ -25,6 +26,7 @@ data class ExplorerUiState(
 fun FlightExplorer.snapshot(): ExplorerUiState = ExplorerUiState(
     filters = filters.value,
     filteredFlights = filteredFlights.value,
+    filteredGeneration = filteredGeneration.value,
     clusters = clusters.value,
     selectedFlight = selectedFlight.value,
     savedFlights = savedFlights.value,
@@ -45,24 +47,26 @@ fun FlightExplorer.watch(
     onChange(snapshot())
     return scope.launch {
         combine(
-            combine(filters, filteredFlights, clusters, selectedFlight, savedFlights) {
-                    f, flights, c, selected, saved ->
-                arrayOf(f, flights, c, selected, saved)
+            combine(filters, filteredFlights, filteredGeneration, clusters, selectedFlight) {
+                    f, flights, generation, c, selected ->
+                arrayOf(f, flights, generation, c, selected)
             },
-            combine(savedIds, status, browsingCluster, saveError) { ids, st, browse, err ->
-                arrayOf(ids, st, browse, err)
+            combine(savedFlights, savedIds, status, browsingCluster, saveError) {
+                    saved, ids, st, browse, err ->
+                arrayOf(saved, ids, st, browse, err)
             },
         ) { left, right ->
             ExplorerUiState(
                 filters = left[0] as FlightFilters,
                 filteredFlights = left[1] as List<Flight>,
-                clusters = left[2] as List<DestinationCluster>,
-                selectedFlight = left[3] as Flight?,
-                savedFlights = left[4] as List<Flight>,
-                savedIds = right[0] as Set<String>,
-                status = right[1] as LoadStatus,
-                browsingCluster = right[2] as DestinationCluster?,
-                saveError = right[3] as String?,
+                filteredGeneration = left[2] as Long,
+                clusters = left[3] as List<DestinationCluster>,
+                selectedFlight = left[4] as Flight?,
+                savedFlights = right[0] as List<Flight>,
+                savedIds = right[1] as Set<String>,
+                status = right[2] as LoadStatus,
+                browsingCluster = right[3] as DestinationCluster?,
+                saveError = right[4] as String?,
             )
         }.collect(onChange)
     }

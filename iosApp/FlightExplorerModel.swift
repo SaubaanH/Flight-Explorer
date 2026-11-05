@@ -18,10 +18,11 @@ final class FlightExplorerModel: ObservableObject {
     @Published var maxPoints: Double = 133_000
     @Published var selectedPrograms: Set<String> = []
 
-    @Published var filteredFlights: [Flight] = []
+    /// Discover list rows (Swift value types — cheap to diff/scroll).
+    @Published var flightCards: [FlightCard] = []
+    @Published var savedCards: [FlightCard] = []
     @Published var clusters: [DestinationCluster] = []
     @Published var selectedFlight: Flight? = nil
-    @Published var savedFlights: [Flight] = []
     @Published var savedIds: Set<String> = []
     @Published var browsingCluster: DestinationCluster? = nil
 
@@ -31,6 +32,11 @@ final class FlightExplorerModel: ObservableObject {
     @Published var errorMessage: String = ""
     @Published var resultCount: Int = 0
     @Published var saveError: String? = nil
+
+    /// Full Kotlin flights for actions (save/select) — not observed by the list.
+    private var flightsById: [String: Flight] = [:]
+    private var savedById: [String: Flight] = [:]
+    private var filteredGeneration: Int64 = -1
 
     init(baseUrl: String = ApiBaseUrls.shared.IOS_SIMULATOR) {
         host = FlightExplorerIos(baseUrl: baseUrl)
@@ -65,13 +71,27 @@ final class FlightExplorerModel: ObservableObject {
             maxPointsEnabled = false
         }
         selectedPrograms = Set(filters.programs)
-        filteredFlights = snap.filteredFlights
+
+        // Only re-bridge the filtered list when generation bumps (not on selection/save).
+        let generation = snap.filteredGeneration
+        if generation != filteredGeneration {
+            filteredGeneration = generation
+            let flights = snap.filteredFlights
+            flightsById = Dictionary(uniqueKeysWithValues: flights.map { ($0.id, $0) })
+            flightCards = flights.map(FlightCard.init)
+            resultCount = flightCards.count
+        }
+
+        let newSavedIds = Set(snap.savedIds)
+        if newSavedIds != savedIds {
+            let saved = snap.savedFlights
+            savedById = Dictionary(uniqueKeysWithValues: saved.map { ($0.id, $0) })
+            savedCards = saved.map(FlightCard.init)
+            savedIds = newSavedIds
+        }
         clusters = snap.clusters
         selectedFlight = snap.selectedFlight
-        savedFlights = snap.savedFlights
-        savedIds = Set(snap.savedIds)
         browsingCluster = snap.browsingCluster
-        resultCount = filteredFlights.count
     }
 
     func refresh() { explorer.refresh() }
@@ -126,9 +146,20 @@ final class FlightExplorerModel: ObservableObject {
     func select(_ id: String?) { explorer.selectFlight(id: id) }
     func openCluster(_ cluster: DestinationCluster) { explorer.openCluster(cluster: cluster) }
     func dismissCluster() { explorer.dismissCluster() }
+
     func save(_ flight: Flight) { _ = explorer.saveFlight(flight: flight) }
+    func save(cardId: String) {
+        if let flight = flightsById[cardId] ?? savedById[cardId] ?? selectedFlight {
+            _ = explorer.saveFlight(flight: flight)
+        }
+    }
+
     func removeSaved(_ id: String) { _ = explorer.removeSaved(id: id) }
     func clearSaveError() { explorer.clearSaveError() }
 
     func isSaved(_ id: String) -> Bool { savedIds.contains(id) }
+
+    func flight(for id: String) -> Flight? {
+        flightsById[id] ?? savedById[id] ?? selectedFlight
+    }
 }

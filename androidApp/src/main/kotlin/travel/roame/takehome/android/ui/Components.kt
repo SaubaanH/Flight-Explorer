@@ -3,6 +3,7 @@ package travel.roame.takehome.android.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -234,83 +234,73 @@ fun FlightRow(
     saved: Boolean,
     onClick: () -> Unit,
 ) {
-    Surface(
-        onClick = onClick,
-        shape = RoameShapes.Card,
-        color = if (selected) RoameColors.PinkSoft else RoameColors.Surface,
-        border = BorderStroke(
-            1.dp,
-            if (selected) RoameColors.Pink.copy(alpha = 0.35f) else RoameColors.Hairline,
-        ),
-        // Keep rows flat — elevation on 1000+ list items is expensive while scrolling.
-        shadowElevation = 0.dp,
-        modifier = Modifier
+    // Flat Box + border is cheaper to scroll than Material Surface per row.
+    Column(
+        Modifier
             .fillMaxWidth()
+            .clip(RoameShapes.Card)
+            .background(if (selected) RoameColors.PinkSoft else RoameColors.Surface)
+            .border(
+                1.dp,
+                if (selected) RoameColors.Pink.copy(alpha = 0.35f) else RoameColors.Hairline,
+                RoameShapes.Card,
+            )
+            .clickable(onClick = onClick)
+            .padding(14.dp)
             .semantics {
                 contentDescription =
                     "Flight ${flight.origin} to ${flight.destination} on ${flight.departureDate}, ${flight.points} points"
             },
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        flight.destinationCity,
-                        fontFamily = FontFamily.Serif,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 18.sp,
-                        color = RoameColors.Ink,
-                    )
-                    Text(
-                        "${flight.origin} → ${flight.destination}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = RoameColors.Muted,
-                    )
-                }
-                Icon(
-                    imageVector = if (saved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                    contentDescription = if (saved) "Saved flight" else "Not saved",
-                    tint = if (saved) RoameColors.Pink else RoameColors.Muted,
-                )
-            }
-            Row(verticalAlignment = Alignment.Bottom) {
+        Row(verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    "%,d".format(flight.points),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
+                    flight.destinationCity,
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 18.sp,
                     color = RoameColors.Ink,
                 )
-                Spacer(Modifier.width(6.dp))
-                Text("pts", style = MaterialTheme.typography.bodyMedium, color = RoameColors.Muted)
-                Spacer(Modifier.weight(1f))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Star,
-                        contentDescription = null,
-                        tint = RoameColors.Pink,
-                        modifier = Modifier.size(14.dp),
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        flight.cabin,
-                        color = RoameColors.Pink,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
+                Text(
+                    "${flight.origin} → ${flight.destination}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = RoameColors.Muted,
+                )
             }
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(RoameColors.Hairline),
+            Icon(
+                imageVector = if (saved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                contentDescription = if (saved) "Saved flight" else "Not saved",
+                tint = if (saved) RoameColors.Pink else RoameColors.Muted,
             )
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(flight.departureDate, style = MaterialTheme.typography.bodySmall)
-                Text(flight.program, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-            }
+        }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                "%,d".format(flight.points),
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                color = RoameColors.Ink,
+            )
+            Spacer(Modifier.width(6.dp))
+            Text("pts", style = MaterialTheme.typography.bodyMedium, color = RoameColors.Muted)
+            Spacer(Modifier.weight(1f))
+            Text(
+                flight.cabin,
+                color = RoameColors.Pink,
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(flight.departureDate, style = MaterialTheme.typography.bodySmall, color = RoameColors.Muted)
+            Text(
+                flight.program,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = RoameColors.Muted,
+            )
         }
     }
 }

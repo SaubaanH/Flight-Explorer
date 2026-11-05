@@ -4,8 +4,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
 import travel.roame.takehome.data.DatabaseDriverFactory
 import travel.roame.takehome.model.DestinationCluster
 import travel.roame.takehome.model.Flight
@@ -18,6 +16,7 @@ import travel.roame.takehome.model.LoadStatus
 data class FlightUiSnapshot(
     val filters: FlightFilters,
     val filteredFlights: List<Flight>,
+    val filteredGeneration: Long,
     val clusters: List<DestinationCluster>,
     val selectedFlight: Flight?,
     val savedFlights: List<Flight>,
@@ -29,7 +28,7 @@ data class FlightUiSnapshot(
 
 /**
  * iOS-facing host: creates [FlightExplorer] for the simulator base URL and pushes
- * [FlightUiSnapshot] updates to a Swift callback whenever any StateFlow changes.
+ * [FlightUiSnapshot] updates to a Swift callback whenever facade state changes.
  */
 class FlightExplorerIos(
     baseUrl: String = ApiBaseUrls.IOS_SIMULATOR,
@@ -45,32 +44,21 @@ class FlightExplorerIos(
 
     fun start(onSnapshot: (FlightUiSnapshot) -> Unit) {
         observeJob?.cancel()
-        observeJob = scope.launch {
-            fun emit() {
-                onSnapshot(
-                    FlightUiSnapshot(
-                        filters = explorer.filters.value,
-                        filteredFlights = explorer.filteredFlights.value,
-                        clusters = explorer.clusters.value,
-                        selectedFlight = explorer.selectedFlight.value,
-                        savedFlights = explorer.savedFlights.value,
-                        savedIds = explorer.savedIds.value,
-                        status = explorer.status.value,
-                        browsingCluster = explorer.browsingCluster.value,
-                        saveError = explorer.saveError.value,
-                    ),
-                )
-            }
-            emit()
-            launch { explorer.filters.collect { emit() } }
-            launch { explorer.filteredFlights.collect { emit() } }
-            launch { explorer.clusters.collect { emit() } }
-            launch { explorer.selectedFlight.collect { emit() } }
-            launch { explorer.savedFlights.collect { emit() } }
-            launch { explorer.savedIds.collect { emit() } }
-            launch { explorer.status.collect { emit() } }
-            launch { explorer.browsingCluster.collect { emit() } }
-            launch { explorer.saveError.collect { emit() } }
+        observeJob = explorer.watch(scope) { state ->
+            onSnapshot(
+                FlightUiSnapshot(
+                    filters = state.filters,
+                    filteredFlights = state.filteredFlights,
+                    filteredGeneration = state.filteredGeneration,
+                    clusters = state.clusters,
+                    selectedFlight = state.selectedFlight,
+                    savedFlights = state.savedFlights,
+                    savedIds = state.savedIds,
+                    status = state.status,
+                    browsingCluster = state.browsingCluster,
+                    saveError = state.saveError,
+                ),
+            )
         }
     }
 

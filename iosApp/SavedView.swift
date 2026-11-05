@@ -12,7 +12,7 @@ struct SavedView: View {
             )
 
             ZStack(alignment: .bottom) {
-                if model.savedFlights.isEmpty {
+                if model.savedCards.isEmpty {
                     ContentUnavailableView(
                         "No saved flights yet",
                         systemImage: "bookmark",
@@ -22,12 +22,12 @@ struct SavedView: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 12) {
-                            ForEach(model.savedFlights, id: \.id) { flight in
+                            ForEach(model.savedCards) { card in
                                 FlightRowView(
-                                    flight: flight,
-                                    selected: model.selectedFlight?.id == flight.id,
+                                    card: card,
+                                    selected: model.selectedFlight?.id == card.id,
                                     saved: true,
-                                    onTap: { model.select(flight.id) }
+                                    onTap: { model.select(card.id) }
                                 )
                             }
                         }

@@ -44,71 +44,65 @@ struct StatusBannerView: View {
 }
 
 struct FlightRowView: View {
-    let flight: Flight
+    let card: FlightCard
     let selected: Bool
     let saved: Bool
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(flight.destinationCity)
+                        Text(card.destinationCity)
                             .font(.system(.title3, design: .serif).weight(.semibold))
                             .foregroundStyle(RoameTheme.ink)
-                        Text("\(flight.origin) → \(flight.destination)")
+                        Text("\(card.origin) → \(card.destination)")
                             .font(.subheadline)
                             .foregroundStyle(RoameTheme.muted)
                     }
-                    Spacer()
+                    Spacer(minLength: 8)
                     Image(systemName: saved ? "bookmark.fill" : "bookmark")
                         .foregroundStyle(saved ? RoameTheme.pink : RoameTheme.muted)
                         .accessibilityLabel(saved ? "Saved flight" : "Not saved")
                 }
 
-                HStack(alignment: .bottom) {
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(flight.points.formatted())
-                            .font(.title2.bold())
-                            .foregroundStyle(RoameTheme.ink)
-                        Text("pts")
-                            .font(.subheadline)
-                            .foregroundStyle(RoameTheme.muted)
-                    }
-                    Spacer()
-                    HStack(spacing: 4) {
-                        Image(systemName: "star.fill")
-                            .font(.caption2)
-                        Text(flight.cabin)
-                            .font(.caption.weight(.semibold))
-                    }
-                    .foregroundStyle(RoameTheme.pink)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(card.points.formatted())
+                        .font(.title2.bold())
+                        .foregroundStyle(RoameTheme.ink)
+                    Text("pts")
+                        .font(.subheadline)
+                        .foregroundStyle(RoameTheme.muted)
+                    Spacer(minLength: 8)
+                    Text(card.cabin)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(RoameTheme.pink)
                 }
 
-                Divider().overlay(RoameTheme.hairline)
-
                 HStack {
-                    Text(flight.departureDate)
+                    Text(card.departureDate)
                         .font(.caption)
                         .foregroundStyle(RoameTheme.muted)
                     Spacer()
-                    Text(flight.program)
+                    Text(card.program)
                         .font(.caption.weight(.medium))
                         .foregroundStyle(RoameTheme.muted)
                 }
             }
-            .padding(16)
-            .background(selected ? RoameTheme.pinkSoft : RoameTheme.surface)
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(selected ? RoameTheme.pinkSoft : RoameTheme.surface)
+            )
             .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(selected ? RoameTheme.pink.opacity(0.35) : RoameTheme.hairline, lineWidth: 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
-            "Flight \(flight.origin) to \(flight.destination) on \(flight.departureDate), \(flight.points) points"
+            "Flight \(card.origin) to \(card.destination) on \(card.departureDate), \(card.points) points"
         )
     }
 }
