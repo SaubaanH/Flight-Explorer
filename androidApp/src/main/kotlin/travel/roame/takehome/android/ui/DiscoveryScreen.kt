@@ -168,24 +168,18 @@ fun SharedTransitionScope.DiscoveryScreen(
                     }
                 }
 
-                selectedFlight?.let { flight ->
-                    Box(
-                        Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 8.dp)
-                            .fillMaxWidth(),
-                    ) {
-                        SelectionCard(
-                            flight = flight,
-                            saved = flight.id in savedIds,
-                            onSave = { explorer.saveFlight(flight) },
-                            onRemove = { explorer.removeSaved(flight.id) },
-                            onDismiss = { explorer.selectFlight(null) },
-                        )
-                    }
-                }
             }
         }
+    }
+
+    selectedFlight?.let { flight ->
+        FlightDetailSheet(
+            flight = flight,
+            saved = flight.id in savedIds,
+            onSave = { explorer.saveFlight(flight) },
+            onRemove = { explorer.removeSaved(flight.id) },
+            onDismiss = { explorer.selectFlight(null) },
+        )
     }
 
     browsingCluster?.let { cluster ->

@@ -105,19 +105,27 @@ struct DiscoveryView: View {
                         )
                 }
 
-                if let flight = model.selectedFlight, !isSearching {
-                    SelectionCardView(
-                        flight: flight,
-                        saved: model.isSaved(flight.id),
-                        onSave: { model.save(flight) },
-                        onRemove: { model.removeSaved(flight.id) },
-                        onDismiss: { model.select(nil) }
-                    )
-                    .padding(.horizontal, 4)
-                    .padding(.bottom, 8)
-                }
             }
         }
+        .sheet(item: selectedFlightItem) { item in
+            FlightDetailSheet(
+                flight: item.flight,
+                saved: model.isSaved(item.flight.id),
+                onSave: { model.save(item.flight) },
+                onRemove: { model.removeSaved(item.flight.id) },
+                onDismiss: { model.select(nil) }
+            )
+        }
+    }
+
+    private var selectedFlightItem: Binding<SelectedFlightItem?> {
+        Binding(
+            get: {
+                guard !isSearching, let flight = model.selectedFlight else { return nil }
+                return SelectedFlightItem(flight: flight)
+            },
+            set: { if $0 == nil { model.select(nil) } }
+        )
     }
 
     private var paneToggle: some View {

@@ -16,6 +16,7 @@
 		A1000000000000000000002B /* RoameTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002C /* RoameTheme.swift */; };
 		A1000000000000000000002D /* SearchChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002E /* SearchChrome.swift */; };
 		A1000000000000000000002F /* FlightCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000030 /* FlightCard.swift */; };
+		A10000000000000000000031 /* FlightDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000032 /* FlightDetailSheet.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,7 @@
 		A1000000000000000000002C /* RoameTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoameTheme.swift; sourceTree = "<group>"; };
 		A1000000000000000000002E /* SearchChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchChrome.swift; sourceTree = "<group>"; };
 		A10000000000000000000030 /* FlightCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightCard.swift; sourceTree = "<group>"; };
+		A10000000000000000000032 /* FlightDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightDetailSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -45,6 +47,7 @@
 				A1000000000000000000002C /* RoameTheme.swift */,
 				A1000000000000000000002E /* SearchChrome.swift */,
 				A10000000000000000000030 /* FlightCard.swift */,
+				A10000000000000000000032 /* FlightDetailSheet.swift */,
 				A10000000000000000000004 /* Info.plist */,
 				A10000000000000000000006 /* Products */,
 			);
@@ -143,6 +146,7 @@
 				A1000000000000000000002B /* RoameTheme.swift in Sources */,
 				A1000000000000000000002D /* SearchChrome.swift in Sources */,
 				A1000000000000000000002F /* FlightCard.swift in Sources */,
+				A10000000000000000000031 /* FlightDetailSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

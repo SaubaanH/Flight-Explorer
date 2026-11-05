@@ -56,25 +56,19 @@ fun SavedScreen(
                     }
                 }
             }
-            val selectedSaved = selectedFlight?.takeIf { sel ->
-                savedFlights.any { it.id == sel.id }
-            }
-            selectedSaved?.let { flight ->
-                Box(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 8.dp)
-                        .fillMaxWidth(),
-                ) {
-                    SelectionCard(
-                        flight = flight,
-                        saved = true,
-                        onSave = { explorer.saveFlight(flight) },
-                        onRemove = { explorer.removeSaved(flight.id) },
-                        onDismiss = { explorer.selectFlight(null) },
-                    )
-                }
-            }
         }
+    }
+
+    val selectedSaved = selectedFlight?.takeIf { sel ->
+        savedFlights.any { it.id == sel.id }
+    }
+    selectedSaved?.let { flight ->
+        FlightDetailSheet(
+            flight = flight,
+            saved = true,
+            onSave = { explorer.saveFlight(flight) },
+            onRemove = { explorer.removeSaved(flight.id) },
+            onDismiss = { explorer.selectFlight(null) },
+        )
     }
 }
