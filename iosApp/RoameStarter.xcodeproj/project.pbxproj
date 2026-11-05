@@ -18,6 +18,7 @@
 		A1000000000000000000002F /* FlightCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000030 /* FlightCard.swift */; };
 		A10000000000000000000031 /* FlightDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000032 /* FlightDetailSheet.swift */; };
 		A10000000000000000000033 /* RouteMapGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000034 /* RouteMapGeometry.swift */; };
+		A10000000000000000000035 /* RoutePreviewMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000036 /* RoutePreviewMapView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,6 +35,7 @@
 		A10000000000000000000030 /* FlightCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightCard.swift; sourceTree = "<group>"; };
 		A10000000000000000000032 /* FlightDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightDetailSheet.swift; sourceTree = "<group>"; };
 		A10000000000000000000034 /* RouteMapGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteMapGeometry.swift; sourceTree = "<group>"; };
+		A10000000000000000000036 /* RoutePreviewMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePreviewMapView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -51,6 +53,7 @@
 				A10000000000000000000030 /* FlightCard.swift */,
 				A10000000000000000000032 /* FlightDetailSheet.swift */,
 				A10000000000000000000034 /* RouteMapGeometry.swift */,
+				A10000000000000000000036 /* RoutePreviewMapView.swift */,
 				A10000000000000000000004 /* Info.plist */,
 				A10000000000000000000006 /* Products */,
 			);
@@ -151,6 +154,7 @@
 				A1000000000000000000002F /* FlightCard.swift in Sources */,
 				A10000000000000000000031 /* FlightDetailSheet.swift in Sources */,
 				A10000000000000000000033 /* RouteMapGeometry.swift in Sources */,
+				A10000000000000000000035 /* RoutePreviewMapView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

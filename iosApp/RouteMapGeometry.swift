@@ -1,14 +1,17 @@
 import MapKit
 import Shared
 
-/// Camera + polyline that take the short path across the antimeridian (e.g. SEA → SYD).
+/// Short-path route geometry for MapKit (handles Pacific crossings like SEA → SYD).
 enum RouteMapGeometry {
     struct Route {
         let origin: CLLocationCoordinate2D
         let destination: CLLocationCoordinate2D
-        /// One or more segments in [-180, 180]. Densified along the short great-circle arc.
+        /// Dest longitude shifted by ±360 when needed so the short arc is continuous.
+        let unwrappedDestination: CLLocationCoordinate2D
+        /// Normalized [-180, 180] segments for SwiftUI `MapPolyline` fallbacks.
         let polylines: [[CLLocationCoordinate2D]]
-        let region: MKCoordinateRegion
+        /// Projected rect for `setVisibleMapRect` (may extend past world edges for dateline routes).
+        let mapRect: MKMapRect
     }
 
     static func route(
@@ -24,19 +27,22 @@ enum RouteMapGeometry {
         while delta > 180 { delta -= 360 }
         while delta < -180 { delta += 360 }
 
-        // Unwrapped destination so interpolation stays on the short arc.
         let unwrappedDest = CLLocationCoordinate2D(
             latitude: destinationLat,
             longitude: originLng + delta
         )
-        let arc = densifyShortArc(from: origin, toUnwrapped: unwrappedDest, segments: 48)
+
+        // Prefer geodesic samples so northern/southern bulges stay inside the frame.
+        let arc = geodesicUnwrapped(from: origin, to: destination, unwrappedDest: unwrappedDest, samples: 64)
         let polylines = splitCrossingAntimeridian(arc)
+        let mapRect = mapRect(coveringUnwrapped: arc)
 
         return Route(
             origin: origin,
             destination: destination,
+            unwrappedDestination: unwrappedDest,
             polylines: polylines,
-            region: regionFittingShortArc(origin: origin, unwrappedDest: unwrappedDest)
+            mapRect: mapRect
         )
     }
 
@@ -51,8 +57,57 @@ enum RouteMapGeometry {
 
     // MARK: - Arc
 
-    /// Linear interpolation in lat / unwrapped-lon space (short path). Enough points to read as a flight arc.
-    private static func densifyShortArc(
+    /// Great-circle samples with longitude kept continuous along the short path.
+    private static func geodesicUnwrapped(
+        from origin: CLLocationCoordinate2D,
+        to destination: CLLocationCoordinate2D,
+        unwrappedDest: CLLocationCoordinate2D,
+        samples: Int
+    ) -> [CLLocationCoordinate2D] {
+        let geodesic = MKGeodesicPolyline(coordinates: [origin, destination], count: 2)
+        let count = Int(geodesic.pointCount)
+        guard count >= 2 else {
+            return densifyLinear(from: origin, toUnwrapped: unwrappedDest, segments: samples)
+        }
+
+        var points: [CLLocationCoordinate2D] = []
+        points.reserveCapacity(count)
+        var prevUnwrappedLon = origin.longitude
+        let ptr = geodesic.points()
+        for i in 0..<count {
+            let raw = ptr[i].coordinate
+            var lon = raw.longitude
+            // Unwrap onto the same continuous axis as the short-path destination.
+            while lon - prevUnwrappedLon > 180 { lon -= 360 }
+            while lon - prevUnwrappedLon < -180 { lon += 360 }
+            // If geodesic went the long way (rare), snap toward unwrappedDest side.
+            let toShort = unwrappedDest.longitude - origin.longitude
+            let toHere = lon - origin.longitude
+            if toShort * toHere < 0, abs(toHere) > 90 {
+                lon += toHere > 0 ? -360 : 360
+            }
+            prevUnwrappedLon = lon
+            points.append(CLLocationCoordinate2D(latitude: raw.latitude, longitude: lon))
+        }
+
+        // Ensure final point matches unwrapped destination longitude domain.
+        if let last = points.last {
+            var endLon = destination.longitude
+            while endLon - last.longitude > 180 { endLon -= 360 }
+            while endLon - last.longitude < -180 { endLon += 360 }
+            // Prefer the precomputed short-path unwrap if still ambiguous.
+            if abs(endLon - unwrappedDest.longitude) > abs(unwrappedDest.longitude - last.longitude) {
+                endLon = unwrappedDest.longitude
+            }
+            points[points.count - 1] = CLLocationCoordinate2D(
+                latitude: destination.latitude,
+                longitude: endLon
+            )
+        }
+        return points
+    }
+
+    private static func densifyLinear(
         from origin: CLLocationCoordinate2D,
         toUnwrapped dest: CLLocationCoordinate2D,
         segments: Int
@@ -67,7 +122,6 @@ enum RouteMapGeometry {
         }
     }
 
-    /// Normalize each point into [-180, 180] and split into separate polylines at the dateline.
     private static func splitCrossingAntimeridian(
         _ points: [CLLocationCoordinate2D]
     ) -> [[CLLocationCoordinate2D]] {
@@ -77,9 +131,7 @@ enum RouteMapGeometry {
         var segments: [[CLLocationCoordinate2D]] = [[previous]]
         for raw in points.dropFirst() {
             let point = normalized(raw)
-            let jump = abs(point.longitude - previous.longitude)
-            if jump > 180 {
-                // Dateline crossing — start a new segment.
+            if abs(point.longitude - previous.longitude) > 180 {
                 segments.append([point])
             } else {
                 segments[segments.count - 1].append(point)
@@ -96,43 +148,38 @@ enum RouteMapGeometry {
         return CLLocationCoordinate2D(latitude: c.latitude, longitude: lon)
     }
 
-    // MARK: - Camera
+    // MARK: - Map rect
 
-    /// Fit the short arc with padding. Uses unwrapped longitudes so Pacific routes
-    /// don't expand to the long way through Africa. Pre-expands for the wide preview.
-    private static func regionFittingShortArc(
-        origin: CLLocationCoordinate2D,
-        unwrappedDest: CLLocationCoordinate2D
-    ) -> MKCoordinateRegion {
-        let routeLat = abs(unwrappedDest.latitude - origin.latitude)
-        let routeLng = abs(unwrappedDest.longitude - origin.longitude)
-
-        // ~24% inset each side so endpoints aren't glued to the crop.
-        var latDelta = max(routeLat * 1.48, 14)
-        var lngDelta = max(routeLng * 1.48, 18)
-
-        // Detail preview is wide (~2.15:1). If the span is wider than that, MapKit
-        // expands latitude — pre-match so longitude padding isn't sacrificed.
-        let viewAspect = 2.15
-        if lngDelta / latDelta > viewAspect {
-            latDelta = lngDelta / viewAspect
-        } else {
-            lngDelta = latDelta * viewAspect
+    /// Build an `MKMapRect` in continuous projection space (x may be <0 or >world width).
+    private static func mapRect(coveringUnwrapped points: [CLLocationCoordinate2D]) -> MKMapRect {
+        let worldW = MKMapSize.world.width
+        func mapX(_ lon: Double) -> Double { (lon + 180.0) / 360.0 * worldW }
+        func mapY(_ lat: Double) -> Double {
+            MKMapPoint(CLLocationCoordinate2D(latitude: lat, longitude: 0)).y
         }
 
-        latDelta = min(latDelta, 110)
-        lngDelta = min(lngDelta, 175)
+        guard let first = points.first else { return .world }
+        var minX = mapX(first.longitude)
+        var maxX = minX
+        var minY = mapY(first.latitude)
+        var maxY = minY
+        for p in points.dropFirst() {
+            let x = mapX(p.longitude)
+            let y = mapY(p.latitude)
+            minX = min(minX, x)
+            maxX = max(maxX, x)
+            minY = min(minY, y)
+            maxY = max(maxY, y)
+        }
 
-        var centerLon = (origin.longitude + unwrappedDest.longitude) / 2
-        while centerLon > 180 { centerLon -= 360 }
-        while centerLon < -180 { centerLon += 360 }
-
-        return MKCoordinateRegion(
-            center: CLLocationCoordinate2D(
-                latitude: (origin.latitude + unwrappedDest.latitude) / 2,
-                longitude: centerLon
-            ),
-            span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lngDelta)
-        )
+        // Minimum size ≈ 800km so short hops aren't over-zoomed.
+        let midLat = (points.first!.latitude + points.last!.latitude) / 2
+        let minMeters: Double = 800_000
+        let minPoints = minMeters / max(MKMetersPerMapPointAtLatitude(midLat), 1)
+        let width = max(maxX - minX, minPoints)
+        let height = max(maxY - minY, minPoints)
+        let cx = (minX + maxX) / 2
+        let cy = (minY + maxY) / 2
+        return MKMapRect(x: cx - width / 2, y: cy - height / 2, width: width, height: height)
     }
 }

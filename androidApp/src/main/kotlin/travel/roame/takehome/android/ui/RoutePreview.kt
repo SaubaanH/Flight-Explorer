@@ -20,10 +20,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import travel.roame.takehome.model.Flight
 import kotlin.math.max
-import kotlin.math.min
 
 /**
  * Lightweight route sketch for the detail sheet — avoids a second MapLibre WebView.
+ * Uses the short longitude path so Pacific routes aren't sketched the long way.
  */
 @Composable
 fun RoutePreview(
@@ -37,26 +37,33 @@ fun RoutePreview(
                 contentDescription = "Route from ${flight.origin} to ${flight.destination}"
             },
     ) {
-        Canvas(Modifier.fillMaxSize().padding(20.dp)) {
-            val minLat = min(flight.originLatitude, flight.destinationLatitude)
-            val maxLat = max(flight.originLatitude, flight.destinationLatitude)
-            val minLng = min(flight.originLongitude, flight.destinationLongitude)
-            val maxLng = max(flight.originLongitude, flight.destinationLongitude)
-            val latPad = max((maxLat - minLat) * 0.2, 4.0)
-            val lngPad = max((maxLng - minLng) * 0.2, 4.0)
+        Canvas(Modifier.fillMaxSize().padding(24.dp)) {
+            var delta = flight.destinationLongitude - flight.originLongitude
+            while (delta > 180) delta -= 360
+            while (delta < -180) delta += 360
+            val destLng = flight.originLongitude + delta
+
+            val minLat = minOf(flight.originLatitude, flight.destinationLatitude)
+            val maxLat = maxOf(flight.originLatitude, flight.destinationLatitude)
+            val minLng = minOf(flight.originLongitude, destLng)
+            val maxLng = maxOf(flight.originLongitude, destLng)
+            val latPad = max((maxLat - minLat) * 0.28, 6.0)
+            val lngPad = max((maxLng - minLng) * 0.28, 8.0)
             val left = minLng - lngPad
             val right = maxLng + lngPad
             val top = maxLat + latPad
             val bottom = minLat - latPad
+            val spanLng = (right - left).coerceAtLeast(1e-6)
+            val spanLat = (top - bottom).coerceAtLeast(1e-6)
 
             fun project(lat: Double, lng: Double): Offset {
-                val x = ((lng - left) / (right - left)).toFloat() * size.width
-                val y = ((top - lat) / (top - bottom)).toFloat() * size.height
+                val x = ((lng - left) / spanLng).toFloat() * size.width
+                val y = ((top - lat) / spanLat).toFloat() * size.height
                 return Offset(x, y)
             }
 
             val origin = project(flight.originLatitude, flight.originLongitude)
-            val dest = project(flight.destinationLatitude, flight.destinationLongitude)
+            val dest = project(flight.destinationLatitude, destLng)
             val pink = Color(0xFFE83A6F)
 
             drawLine(

@@ -78,46 +78,9 @@ struct FlightDetailSheet: View {
 
 private struct RoutePreviewMap: View {
     let flight: Flight
-    @State private var cameraPosition: MapCameraPosition
-
-    init(flight: Flight) {
-        self.flight = flight
-        let geometry = RouteMapGeometry.route(for: flight)
-        _cameraPosition = State(initialValue: .region(geometry.region))
-    }
-
-    private var geometry: RouteMapGeometry.Route {
-        RouteMapGeometry.route(for: flight)
-    }
 
     var body: some View {
-        // Explicit camera binding keeps MapKit from reframing to the long-way
-        // bounds of origin/destination when the short path crosses the dateline.
-        Map(position: $cameraPosition) {
-            ForEach(Array(geometry.polylines.enumerated()), id: \.offset) { _, coords in
-                MapPolyline(coordinates: coords)
-                    .stroke(RoameTheme.pink, lineWidth: 3)
-            }
-            // Compact dots — Marker pins steal edge padding and crowd long-haul frames.
-            Annotation(flight.origin, coordinate: geometry.origin, anchor: .center) {
-                routeEndpointDot
-            }
-            Annotation(flight.destination, coordinate: geometry.destination, anchor: .center) {
-                routeEndpointDot
-            }
-        }
-        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
-        .disabled(true)
-        .mapControlVisibility(.hidden)
-        .onAppear {
-            cameraPosition = .region(geometry.region)
-        }
-    }
-
-    private var routeEndpointDot: some View {
-        Circle()
-            .fill(RoameTheme.pink)
-            .frame(width: 10, height: 10)
-            .overlay(Circle().stroke(Color.white, lineWidth: 2))
+        RoutePreviewMapView(flight: flight)
+            .accessibilityLabel("Route map from \(flight.origin) to \(flight.destination)")
     }
 }
