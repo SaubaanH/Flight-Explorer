@@ -2,8 +2,8 @@ import MapKit
 import SwiftUI
 import Shared
 
-/// Real MapKit preview with short-path framing + pixel edge padding.
-/// Sketch underneath covers the brief tile load so the sheet never looks empty.
+/// Real MapKit preview. Line + endpoints are one overlay in unwrapped map-point
+/// space so both airports stay in frame on antimeridian routes.
 struct RoutePreviewMapView: View {
     let flight: Flight
     @State private var mapReady = false
@@ -25,7 +25,6 @@ struct RoutePreviewMapView: View {
     }
 }
 
-/// Instant short-path placeholder shown until MapKit tiles appear.
 struct RouteSketchView: View {
     let flight: Flight
 
@@ -151,15 +150,7 @@ private struct RouteMapKitView: UIViewRepresentable {
         context.coordinator.flightId = flight.id
 
         mapView.removeOverlays(mapView.overlays)
-        mapView.removeAnnotations(mapView.annotations)
-
-        for segment in geometry.polylines {
-            var coords = segment
-            mapView.addOverlay(MKPolyline(coordinates: &coords, count: coords.count), level: .aboveRoads)
-        }
-
-        mapView.addAnnotation(EndpointAnnotation(coordinate: geometry.origin, title: flight.origin))
-        mapView.addAnnotation(EndpointAnnotation(coordinate: geometry.destination, title: flight.destination))
+        mapView.addOverlay(ShortPathRouteOverlay(geometry: geometry), level: .aboveRoads)
         context.coordinator.fit(mapView, force: true)
     }
 
@@ -193,31 +184,16 @@ private struct RouteMapKitView: UIViewRepresentable {
             lastFittedId = flightId
             if idChanged { didSignalReady = false }
 
-            let inset = UIEdgeInsets(top: 30, left: 44, bottom: 30, right: 44)
+            // Pixel padding on top of the already-padded mapRect.
+            let inset = UIEdgeInsets(top: 24, left: 36, bottom: 24, right: 36)
             mapView.setVisibleMapRect(geometry.mapRect, edgePadding: inset, animated: false)
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            if let polyline = overlay as? MKPolyline {
-                let renderer = MKPolylineRenderer(polyline: polyline)
-                renderer.strokeColor = UIColor(RoameTheme.pink)
-                renderer.lineWidth = 3
-                renderer.lineCap = .round
-                renderer.lineJoin = .round
-                return renderer
+            if let route = overlay as? ShortPathRouteOverlay {
+                return ShortPathRouteRenderer(overlay: route)
             }
             return MKOverlayRenderer(overlay: overlay)
-        }
-
-        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-            guard annotation is EndpointAnnotation else { return nil }
-            let id = "route-endpoint"
-            let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
-                ?? MKAnnotationView(annotation: annotation, reuseIdentifier: id)
-            view.annotation = annotation
-            view.canShowCallout = false
-            view.image = Self.endpointDotImage
-            return view
         }
 
         func mapViewDidFinishLoadingMap(_ mapView: MKMapView) {
@@ -226,7 +202,10 @@ private struct RouteMapKitView: UIViewRepresentable {
         }
 
         func mapViewDidFinishRenderingMap(_ mapView: MKMapView, fullyRendered: Bool) {
-            if fullyRendered { signalReady() }
+            if fullyRendered {
+                fit(mapView, force: true)
+                signalReady()
+            }
         }
 
         private func signalReady() {
@@ -234,28 +213,6 @@ private struct RouteMapKitView: UIViewRepresentable {
             didSignalReady = true
             onReady()
         }
-
-        private static let endpointDotImage: UIImage = {
-            let size = CGSize(width: 14, height: 14)
-            let renderer = UIGraphicsImageRenderer(size: size)
-            return renderer.image { ctx in
-                let rect = CGRect(origin: .zero, size: size).insetBy(dx: 1, dy: 1)
-                UIColor.white.setFill()
-                ctx.cgContext.fillEllipse(in: rect)
-                UIColor(RoameTheme.pink).setFill()
-                ctx.cgContext.fillEllipse(in: rect.insetBy(dx: 2.5, dy: 2.5))
-            }
-        }()
-    }
-}
-
-private final class EndpointAnnotation: NSObject, MKAnnotation {
-    dynamic var coordinate: CLLocationCoordinate2D
-    let title: String?
-
-    init(coordinate: CLLocationCoordinate2D, title: String) {
-        self.coordinate = coordinate
-        self.title = title
     }
 }
 
