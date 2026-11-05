@@ -10,16 +10,18 @@ struct RoameStarterApp: App {
             TabView {
                 DiscoveryView(model: model)
                     .tabItem {
-                        Label("Discover", systemImage: "airplane")
+                        Label("Discover", systemImage: "safari")
                     }
                     .accessibilityLabel("Discover tab")
 
                 SavedView(model: model)
                     .tabItem {
-                        Label("Saved", systemImage: "bookmark.fill")
+                        Label("Saved", systemImage: "heart")
                     }
                     .accessibilityLabel("Saved tab")
             }
+            .tint(RoameTheme.pink)
+            .background(RoameTheme.canvas.ignoresSafeArea())
         }
     }
 }

@@ -6,10 +6,10 @@ struct SavedView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Saved flights").font(.title2.bold())
-            Text("Independent of discovery filters. Available offline.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            RoameBrandHeader(
+                title: "Saved flights",
+                subtitle: "Independent of discovery filters. Available offline."
+            )
 
             ZStack(alignment: .bottom) {
                 if model.savedFlights.isEmpty {
@@ -18,9 +18,10 @@ struct SavedView: View {
                         systemImage: "bookmark",
                         description: Text("Save one from Discover.")
                     )
+                    .foregroundStyle(RoameTheme.muted)
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 8) {
+                        LazyVStack(spacing: 12) {
                             ForEach(model.savedFlights, id: \.id) { flight in
                                 FlightRowView(
                                     flight: flight,
@@ -30,7 +31,7 @@ struct SavedView: View {
                                 )
                             }
                         }
-                        .padding(.bottom, 140)
+                        .padding(.bottom, 160)
                     }
                 }
 
@@ -42,10 +43,11 @@ struct SavedView: View {
                         onRemove: { model.removeSaved(flight.id) },
                         onDismiss: { model.select(nil) }
                     )
-                    .padding()
+                    .padding(.bottom, 8)
                 }
             }
         }
         .padding(.horizontal)
+        .background(RoameTheme.canvas.ignoresSafeArea())
     }
 }

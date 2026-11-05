@@ -1,12 +1,23 @@
 package travel.roame.takehome.android.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -18,9 +29,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import travel.roame.takehome.FlightExplorer
 
 @Composable
@@ -45,24 +62,13 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
     }
 
     Scaffold(
+        containerColor = RoameColors.Canvas,
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    selected = tab == 0,
-                    onClick = { tab = 0 },
-                    icon = { Icon(Icons.Default.Explore, contentDescription = "Discover tab") },
-                    label = { Text("Discover") },
-                    modifier = Modifier.semantics { contentDescription = "Discover tab" },
-                )
-                NavigationBarItem(
-                    selected = tab == 1,
-                    onClick = { tab = 1 },
-                    icon = { Icon(Icons.Default.Favorite, contentDescription = "Saved tab") },
-                    label = { Text("Saved") },
-                    modifier = Modifier.semantics { contentDescription = "Saved tab" },
-                )
-            }
+            RoameBottomBar(
+                tab = tab,
+                onTab = { tab = it },
+            )
         },
     ) { padding ->
         when (tab) {
@@ -84,5 +90,87 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
                 modifier = Modifier.padding(padding),
             )
         }
+    }
+}
+
+@Composable
+private fun RoameBottomBar(
+    tab: Int,
+    onTab: (Int) -> Unit,
+) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .background(Color.Transparent)
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .shadow(10.dp, RoameShapes.Pill, clip = false)
+                .clip(RoameShapes.Pill)
+                .background(RoameColors.Surface)
+                .border(1.dp, RoameColors.Hairline, RoameShapes.Pill)
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            RoameTabItem(
+                selected = tab == 0,
+                label = "Discover",
+                selectedIcon = Icons.Filled.Explore,
+                unselectedIcon = Icons.Outlined.Explore,
+                contentDescription = "Discover tab",
+                onClick = { onTab(0) },
+                modifier = Modifier.weight(1f),
+            )
+            RoameTabItem(
+                selected = tab == 1,
+                label = "Saved",
+                selectedIcon = Icons.Filled.Favorite,
+                unselectedIcon = Icons.Outlined.FavoriteBorder,
+                contentDescription = "Saved tab",
+                onClick = { onTab(1) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RoameTabItem(
+    selected: Boolean,
+    label: String,
+    selectedIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    unselectedIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val bg = if (selected) RoameColors.PinkSoft else Color.Transparent
+    val fg = if (selected) RoameColors.Pink else RoameColors.Muted
+    Row(
+        modifier
+            .clip(RoameShapes.Pill)
+            .background(bg)
+            .clickable(onClick = onClick)
+            .semantics { this.contentDescription = contentDescription }
+            .padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = if (selected) selectedIcon else unselectedIcon,
+            contentDescription = null,
+            tint = fg,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.size(8.dp))
+        Text(
+            label,
+            color = fg,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+        )
     }
 }

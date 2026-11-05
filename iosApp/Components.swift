@@ -7,37 +7,39 @@ struct StatusBannerView: View {
     var body: some View {
         Group {
             if model.isLoading {
-                banner(text: "Loading flights…", color: .blue.opacity(0.15))
+                banner(text: "Loading flights…", color: RoameTheme.pinkSoft)
             } else if model.isOfflineStale {
                 HStack {
                     Text("Offline — showing cached flights")
                         .accessibilityLabel("Offline stale data banner")
                     Spacer()
                     Button("Retry") { model.refresh() }
+                        .fontWeight(.bold)
+                        .foregroundStyle(RoameTheme.pink)
                 }
-                .padding(12)
-                .background(Color.orange.opacity(0.2))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(14)
+                .background(RoameTheme.offline)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             } else if model.isError {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(model.errorMessage)
                         .accessibilityLabel("Error loading flights")
-                    Button("Retry") { model.refresh() }
+                    RoamePillButton(label: "Retry") { model.refresh() }
                 }
-                .padding(12)
+                .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.red.opacity(0.15))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .background(RoameTheme.errorSoft)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
         }
     }
 
     private func banner(text: String, color: Color) -> some View {
         Text(text)
-            .padding(12)
+            .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(color)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 }
 
@@ -49,29 +51,60 @@ struct FlightRowView: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("\(flight.origin) → \(flight.destination)")
-                        .font(.headline)
-                    Text("\(flight.originCity) to \(flight.destinationCity)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("\(flight.departureDate) · \(flight.cabin) · \(flight.program)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                VStack(alignment: .trailing) {
-                    Text(flight.points.formatted())
-                        .font(.headline)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(flight.destinationCity)
+                            .font(.system(.title3, design: .serif).weight(.semibold))
+                            .foregroundStyle(RoameTheme.ink)
+                        Text("\(flight.origin) → \(flight.destination)")
+                            .font(.subheadline)
+                            .foregroundStyle(RoameTheme.muted)
+                    }
+                    Spacer()
                     Image(systemName: saved ? "bookmark.fill" : "bookmark")
-                        .foregroundStyle(saved ? Color.orange : Color.secondary)
+                        .foregroundStyle(saved ? RoameTheme.pink : RoameTheme.muted)
                         .accessibilityLabel(saved ? "Saved flight" : "Not saved")
                 }
+
+                HStack(alignment: .bottom) {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(flight.points.formatted())
+                            .font(.title2.bold())
+                            .foregroundStyle(RoameTheme.ink)
+                        Text("pts")
+                            .font(.subheadline)
+                            .foregroundStyle(RoameTheme.muted)
+                    }
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Image(systemName: "star.fill")
+                            .font(.caption2)
+                        Text(flight.cabin)
+                            .font(.caption.weight(.semibold))
+                    }
+                    .foregroundStyle(RoameTheme.pink)
+                }
+
+                Divider().overlay(RoameTheme.hairline)
+
+                HStack {
+                    Text(flight.departureDate)
+                        .font(.caption)
+                        .foregroundStyle(RoameTheme.muted)
+                    Spacer()
+                    Text(flight.program)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(RoameTheme.muted)
+                }
             }
-            .padding(12)
-            .background(selected ? Color.green.opacity(0.15) : Color(.secondarySystemBackground))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(16)
+            .background(selected ? RoameTheme.pinkSoft : RoameTheme.surface)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(selected ? RoameTheme.pink.opacity(0.35) : RoameTheme.hairline, lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
@@ -90,30 +123,44 @@ struct SelectionCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("\(flight.origin) → \(flight.destination)")
-                    .font(.title3.bold())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(flight.origin) → \(flight.destination)")
+                        .font(.title3.bold())
+                        .foregroundStyle(RoameTheme.ink)
+                    Text("\(flight.originCity) → \(flight.destinationCity)")
+                        .font(.caption)
+                        .foregroundStyle(RoameTheme.muted)
+                }
                 Spacer()
                 Button(action: onDismiss) {
                     Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(RoameTheme.muted)
                 }
                 .accessibilityLabel("Clear selection")
             }
-            Text("\(flight.originCity) → \(flight.destinationCity)")
-            Text("Depart \(flight.departureDate)")
-            Text("\(flight.cabin) · \(flight.program)")
-            Text("\(flight.points.formatted()) points").bold()
+            Text("Depart \(flight.departureDate) · \(flight.cabin)")
+                .foregroundStyle(RoameTheme.ink)
+            Text(flight.program)
+                .font(.caption)
+                .foregroundStyle(RoameTheme.muted)
+            Text("\(flight.points.formatted()) points")
+                .font(.title3.bold())
             if saved {
-                Button("Remove", action: onRemove)
+                RoamePillButton(label: "Remove", filled: false, action: onRemove)
                     .accessibilityLabel("Remove saved flight")
             } else {
-                Button("Save", action: onSave)
+                RoamePillButton(label: "Save", action: onSave)
                     .accessibilityLabel("Save flight")
             }
         }
-        .padding()
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(radius: 4)
+        .padding(16)
+        .background(RoameTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(RoameTheme.hairline, lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 12, y: 4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Selected flight details")
     }
@@ -126,15 +173,17 @@ struct ActiveFilterChipsView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("\(model.resultCount) flights")
-                    .font(.headline)
+                    .font(.system(.headline, design: .serif))
                     .accessibilityLabel("Result count \(model.resultCount)")
                 Spacer()
                 if !model.originText.isEmpty || !model.destinationText.isEmpty || model.cabin != nil || model.maxPointsEnabled || !model.selectedPrograms.isEmpty {
-                    Button("Reset filters") { model.resetFilters() }
+                    Button("Reset") { model.resetFilters() }
+                        .fontWeight(.bold)
+                        .foregroundStyle(RoameTheme.pink)
                 }
             }
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack {
+                HStack(spacing: 8) {
                     if !model.originText.trimmingCharacters(in: .whitespaces).isEmpty {
                         chip("From: \(model.originText)") {
                             model.onOriginChanged("")
@@ -164,10 +213,12 @@ struct ActiveFilterChipsView: View {
     private func chip(_ title: String, onRemove: @escaping () -> Void) -> some View {
         Button(action: onRemove) {
             Label(title, systemImage: "xmark")
-                .font(.caption)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Color.green.opacity(0.15))
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .foregroundStyle(RoameTheme.pinkDeep)
+                .background(RoameTheme.pinkSoft)
+                .overlay(Capsule().stroke(RoameTheme.pink.opacity(0.2), lineWidth: 1))
                 .clipShape(Capsule())
         }
         .buttonStyle(.plain)

@@ -1,5 +1,7 @@
 package travel.roame.takehome.android.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,13 +20,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,8 +35,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import travel.roame.takehome.FlightExplorer
@@ -50,7 +54,6 @@ import travel.roame.takehome.model.LoyaltyPrograms
 private enum class DiscoverPane { List, Map }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Suppress("UnusedImport")
 @Composable
 fun DiscoveryScreen(
     filters: FlightFilters,
@@ -70,22 +73,38 @@ fun DiscoveryScreen(
         mutableFloatStateOf((filters.maxPoints ?: 133000).toFloat())
     }
 
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = RoameColors.Pink,
+        unfocusedBorderColor = RoameColors.Hairline,
+        focusedLabelColor = RoameColors.Pink,
+        cursorColor = RoameColors.Pink,
+        focusedContainerColor = RoameColors.Surface,
+        unfocusedContainerColor = RoameColors.Surface,
+    )
+
     Column(
         modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         StatusBanner(status = status, onRetry = { explorer.refresh() })
 
         Column(
             Modifier
                 .fillMaxWidth()
-                .heightIn(max = 260.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .heightIn(max = 280.dp)
+                .clip(RoameShapes.Panel)
+                .background(RoameColors.Surface)
+                .border(1.dp, RoameColors.Hairline, RoameShapes.Panel)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("Discover", style = MaterialTheme.typography.headlineSmall)
+            RoameBrandHeader(
+                title = "Discover",
+                subtitle = "Find award flights with points",
+            )
             OutlinedTextField(
                 value = originText,
                 onValueChange = {
@@ -95,6 +114,8 @@ fun DiscoveryScreen(
                 label = { Text("Origin") },
                 placeholder = { Text("Code or city") },
                 singleLine = true,
+                shape = RoameShapes.Pill,
+                colors = fieldColors,
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = "Origin search field" },
@@ -109,6 +130,8 @@ fun DiscoveryScreen(
                 label = { Text("Destination") },
                 placeholder = { Text("Code or city") },
                 singleLine = true,
+                shape = RoameShapes.Pill,
+                colors = fieldColors,
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = "Destination search field" },
@@ -120,6 +143,8 @@ fun DiscoveryScreen(
                     onValueChange = { explorer.setDateRange(it, filters.dateTo) },
                     label = { Text("From date") },
                     singleLine = true,
+                    shape = RoameShapes.Pill,
+                    colors = fieldColors,
                     modifier = Modifier
                         .weight(1f)
                         .semantics { contentDescription = "Departure date from" },
@@ -129,41 +154,53 @@ fun DiscoveryScreen(
                     onValueChange = { explorer.setDateRange(filters.dateFrom, it) },
                     label = { Text("To date") },
                     singleLine = true,
+                    shape = RoameShapes.Pill,
+                    colors = fieldColors,
                     modifier = Modifier
                         .weight(1f)
                         .semantics { contentDescription = "Departure date to" },
                 )
             }
             Text("Cabin", style = MaterialTheme.typography.labelLarge)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                RoameFilterChip(
                     selected = filters.cabin == null,
+                    label = "Any",
                     onClick = { explorer.setCabin(null) },
-                    label = { Text("Any") },
-                    modifier = Modifier.semantics { contentDescription = "Cabin filter any" },
+                    contentDescription = "Cabin filter any",
                 )
                 Cabin.allLabels.forEach { cabin ->
-                    FilterChip(
+                    RoameFilterChip(
                         selected = filters.cabin == cabin,
+                        label = cabin,
                         onClick = { explorer.setCabin(cabin) },
-                        label = { Text(cabin) },
-                        modifier = Modifier.semantics { contentDescription = "Cabin filter $cabin" },
+                        contentDescription = "Cabin filter $cabin",
                     )
                 }
             }
             Text(
                 "Max points: ${"%,d".format(pointsSlider.toInt())}",
                 modifier = Modifier.semantics { contentDescription = "Maximum points filter" },
+                style = MaterialTheme.typography.bodyMedium,
             )
             Slider(
                 value = pointsSlider,
                 onValueChange = { pointsSlider = it },
                 valueRange = 9000f..133000f,
                 onValueChangeFinished = { explorer.setMaxPoints(pointsSlider.toInt()) },
+                colors = SliderDefaults.colors(
+                    thumbColor = RoameColors.Pink,
+                    activeTrackColor = RoameColors.Pink,
+                    inactiveTrackColor = RoameColors.PinkSoft,
+                ),
                 modifier = Modifier.semantics { contentDescription = "Maximum points slider" },
             )
-            FilterChip(
+            RoameFilterChip(
                 selected = filters.maxPoints != null,
+                label = if (filters.maxPoints == null) "Points filter off" else "Points filter on",
                 onClick = {
                     if (filters.maxPoints == null) {
                         explorer.setMaxPoints(pointsSlider.toInt())
@@ -171,9 +208,7 @@ fun DiscoveryScreen(
                         explorer.setMaxPoints(null)
                     }
                 },
-                label = {
-                    Text(if (filters.maxPoints == null) "Points filter off" else "Points filter on")
-                },
+                contentDescription = "Points filter toggle",
             )
             Text("Loyalty programs", style = MaterialTheme.typography.labelLarge)
             ProgramChips(
@@ -208,20 +243,7 @@ fun DiscoveryScreen(
             onRemoveProgram = explorer::toggleProgram,
         )
 
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            SegmentedButton(
-                selected = pane == DiscoverPane.List,
-                onClick = { pane = DiscoverPane.List },
-                shape = SegmentedButtonDefaults.itemShape(0, 2),
-                label = { Text("List") },
-            )
-            SegmentedButton(
-                selected = pane == DiscoverPane.Map,
-                onClick = { pane = DiscoverPane.Map },
-                shape = SegmentedButtonDefaults.itemShape(1, 2),
-                label = { Text("Map") },
-            )
-        }
+        PaneToggle(pane = pane, onPane = { pane = it })
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (pane) {
@@ -233,11 +255,12 @@ fun DiscoveryScreen(
                         Text(
                             "No flights match these filters.",
                             modifier = Modifier.align(Alignment.Center),
+                            color = RoameColors.Muted,
                         )
                     } else {
                         LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(bottom = 140.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            contentPadding = PaddingValues(bottom = 160.dp),
                         ) {
                             items(filteredFlights, key = { it.id }) { flight ->
                                 FlightRow(
@@ -251,12 +274,19 @@ fun DiscoveryScreen(
                     }
                 }
                 DiscoverPane.Map -> {
-                    FlightMap(
-                        clusters = clusters,
-                        selectedFlight = selectedFlight,
-                        onClusterTap = explorer::openCluster,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .clip(RoameShapes.Card)
+                            .border(1.dp, RoameColors.Hairline, RoameShapes.Card),
+                    ) {
+                        FlightMap(
+                            clusters = clusters,
+                            selectedFlight = selectedFlight,
+                            onClusterTap = explorer::openCluster,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
                 }
             }
 
@@ -282,12 +312,21 @@ fun DiscoveryScreen(
     browsingCluster?.let { cluster ->
         AlertDialog(
             onDismissRequest = explorer::dismissCluster,
-            title = { Text("${cluster.destination} · ${cluster.flightCount} flights") },
+            containerColor = RoameColors.Surface,
+            shape = RoameShapes.Panel,
+            title = {
+                Text(
+                    "${cluster.destination} · ${cluster.flightCount} flights",
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            },
             text = {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     item {
                         Text(
                             "From ${"%,d".format(cluster.lowestPoints)} points · ${cluster.destinationCity}",
+                            color = RoameColors.Muted,
                         )
                     }
                     items(cluster.flights, key = { it.id }) { flight ->
@@ -304,8 +343,44 @@ fun DiscoveryScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = explorer::dismissCluster) { Text("Close") }
+                TextButton(onClick = explorer::dismissCluster) {
+                    Text("Close", color = RoameColors.Pink, fontWeight = FontWeight.Bold)
+                }
             },
         )
+    }
+}
+
+@Composable
+private fun PaneToggle(pane: DiscoverPane, onPane: (DiscoverPane) -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoameShapes.Pill)
+            .background(RoameColors.Surface)
+            .border(1.dp, RoameColors.Hairline, RoameShapes.Pill)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        DiscoverPane.entries.forEach { option ->
+            val selected = pane == option
+            androidx.compose.material3.Surface(
+                onClick = { onPane(option) },
+                shape = RoameShapes.Pill,
+                color = if (selected) RoameColors.PinkSoft else Color.Transparent,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(
+                    option.name,
+                    Modifier
+                        .padding(vertical = 10.dp)
+                        .fillMaxWidth(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    color = if (selected) RoameColors.Pink else RoameColors.Muted,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
     }
 }
