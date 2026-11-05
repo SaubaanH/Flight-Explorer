@@ -1,47 +1,151 @@
 import Foundation
 import Shared
-import SwiftUI
+import Combine
 
+/// Observable bridge over the shared `FlightExplorer` facade.
+/// Polls StateFlow `.value` so SwiftUI stays in lockstep without SKIE.
 @MainActor
 final class FlightExplorerModel: ObservableObject {
-    let host: FlightExplorerIos
-    var explorer: FlightExplorer { host.explorer }
+    let explorer: FlightExplorer
 
-    @Published var filters: FlightFilters = FlightFilters.companion.defaults()
-    @Published var filteredFlights: [Flight] = []
-    @Published var clusters: [DestinationCluster] = []
-    @Published var selectedFlight: Flight?
-    @Published var savedFlights: [Flight] = []
-    @Published var savedIds: Set<String> = []
-    @Published var status: LoadStatus = LoadStatusLoading()
-    @Published var browsingCluster: DestinationCluster?
-    @Published var saveError: String?
     @Published var originText: String = ""
     @Published var destinationText: String = ""
-    @Published var pointsSlider: Double = 133_000
+    @Published var dateFrom: String = "2027-02-01"
+    @Published var dateTo: String = "2027-04-01"
+    @Published var cabin: String? = nil
+    @Published var maxPointsEnabled: Bool = false
+    @Published var maxPoints: Double = 133_000
+    @Published var selectedPrograms: Set<String> = []
 
-    init(host: FlightExplorerIos = FlightExplorerIos()) {
-        self.host = host
-        host.start { [weak self] snapshot in
+    @Published var filteredFlights: [Flight] = []
+    @Published var clusters: [DestinationCluster] = []
+    @Published var selectedFlight: Flight? = nil
+    @Published var savedFlights: [Flight] = []
+    @Published var savedIds: Set<String> = []
+    @Published var browsingCluster: DestinationCluster? = nil
+
+    @Published var isLoading: Bool = true
+    @Published var isOfflineStale: Bool = false
+    @Published var isError: Bool = false
+    @Published var errorMessage: String = ""
+    @Published var resultCount: Int = 0
+    @Published var saveError: String? = nil
+
+    private var timer: Timer?
+
+    init(baseUrl: String = ApiBaseUrls.shared.IOS_SIMULATOR) {
+        explorer = FlightExplorerFactory.shared.create(
+            baseUrl: baseUrl,
+            driverFactory: DatabaseDriverFactory()
+        )
+        timer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.apply(snapshot)
+                self?.pull()
             }
+        }
+        pull()
+    }
+
+    deinit {
+        timer?.invalidate()
+        explorer.close()
+    }
+
+    func pull() {
+        let filters = explorer.filters.value
+        dateFrom = filters.dateFrom
+        dateTo = filters.dateTo
+        cabin = filters.cabin
+        if let max = filters.maxPoints?.intValue {
+            maxPointsEnabled = true
+            maxPoints = Double(max)
+        } else {
+            maxPointsEnabled = false
+        }
+        var programs = Set<String>()
+        for item in filters.programs {
+            if let program = item as? String {
+                programs.insert(program)
+            }
+        }
+        selectedPrograms = programs
+
+        filteredFlights = (explorer.filteredFlights.value as? [Any] ?? []).compactMap { $0 as? Flight }
+        clusters = (explorer.clusters.value as? [Any] ?? []).compactMap { $0 as? DestinationCluster }
+        selectedFlight = explorer.selectedFlight.value
+        savedFlights = (explorer.savedFlights.value as? [Any] ?? []).compactMap { $0 as? Flight }
+        var ids = Set<String>()
+        for item in explorer.savedIds.value {
+            if let id = item as? String { ids.insert(id) }
+        }
+        savedIds = ids
+        browsingCluster = explorer.browsingCluster.value
+        resultCount = filteredFlights.count
+        saveError = explorer.saveError.value
+
+        let status = explorer.status.value
+        let kind = status.kind
+        isLoading = kind == "loading"
+        isOfflineStale = kind == "offline_stale"
+        isError = kind == "error"
+        errorMessage = status.errorMessageOrNull ?? ""
+    }
+
+    func refresh() { explorer.refresh() }
+
+    func onOriginChanged(_ text: String) {
+        originText = text
+        explorer.setOriginQuery(raw: text)
+    }
+
+    func onDestinationChanged(_ text: String) {
+        destinationText = text
+        explorer.setDestinationQuery(raw: text)
+    }
+
+    func onDateFrom(_ text: String) {
+        dateFrom = text
+        explorer.setDateRange(from: text, to: dateTo)
+    }
+
+    func onDateTo(_ text: String) {
+        dateTo = text
+        explorer.setDateRange(from: dateFrom, to: text)
+    }
+
+    func onCabin(_ value: String?) {
+        cabin = value
+        explorer.setCabin(cabin: value)
+    }
+
+    func onMaxPointsChanged(_ value: Double, enabled: Bool) {
+        maxPoints = value
+        maxPointsEnabled = enabled
+        if enabled {
+            explorer.setMaxPoints(maxPoints: KotlinInt(int: Int32(value)))
+        } else {
+            explorer.setMaxPoints(maxPoints: nil)
         }
     }
 
-    private func apply(_ snapshot: FlightUiSnapshot) {
-        filters = snapshot.filters
-        filteredFlights = snapshot.filteredFlights
-        clusters = snapshot.clusters
-        selectedFlight = snapshot.selectedFlight
-        savedFlights = snapshot.savedFlights
-        savedIds = Set(snapshot.savedIds.map { $0 as String })
-        status = snapshot.status
-        browsingCluster = snapshot.browsingCluster
-        saveError = snapshot.saveError
+    func toggleProgram(_ program: String) {
+        explorer.toggleProgram(program: program)
     }
 
-    func close() {
-        host.close()
+    func resetFilters() {
+        originText = ""
+        destinationText = ""
+        maxPointsEnabled = false
+        maxPoints = 133_000
+        explorer.resetFilters()
     }
+
+    func select(_ id: String?) { explorer.selectFlight(id: id) }
+    func openCluster(_ cluster: DestinationCluster) { explorer.openCluster(cluster: cluster) }
+    func dismissCluster() { explorer.dismissCluster() }
+    func save(_ flight: Flight) { _ = explorer.saveFlight(flight: flight) }
+    func removeSaved(_ id: String) { _ = explorer.removeSaved(id: id) }
+    func clearSaveError() { explorer.clearSaveError() }
+
+    func isSaved(_ id: String) -> Bool { savedIds.contains(id) }
 }

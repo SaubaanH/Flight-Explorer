@@ -90,4 +90,16 @@ sealed class LoadStatus {
     data object Empty : LoadStatus()
     data object OfflineStale : LoadStatus()
     data class Error(val message: String) : LoadStatus()
+
+    val kind: String
+        get() = when (this) {
+            Loading -> "loading"
+            Ready -> "ready"
+            Empty -> "empty"
+            OfflineStale -> "offline_stale"
+            is Error -> "error"
+        }
+
+    val errorMessageOrNull: String?
+        get() = (this as? Error)?.message
 }

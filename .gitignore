@@ -6,3 +6,10 @@ local.properties
 .DS_Store
 **/xcuserdata/
 DerivedData/
+*.iml
+.vscode/
+captures/
+*.apk
+*.aab
+xcuserdata/
+*.xcuserstate

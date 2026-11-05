@@ -1,93 +1,126 @@
 # Flight Explorer — submission notes
 
-## What shipped
+## Approach
 
-Dual native UIs (Jetpack Compose + SwiftUI) over a shared KMP data/domain layer, driven by a single `FlightExplorer` facade. Local Python API on port 8080 serves the provided `fixtures/flights.json` (1000 flights).
+Shared-first KMP core owns every product rule the PDF cares about:
 
-## Architecture
+- **Networking** — Ktor client `GET /flights`
+- **Persistence** — SQLDelight `flight_cache` + `saved_flights` (upsert by `id`)
+- **Search / filters** — `SearchFilterEngine` (trim/casefold; inclusive date + max points; program OR; dimension AND)
+- **Map aggregation** — `MapAggregator` (destination → count + lowest points)
+- **UI parity** — `FlightExplorer` facade exposes `StateFlow`s both native UIs observe
 
-```mermaid
-flowchart LR
-  Android[androidApp Compose]
-  iOS[iosApp SwiftUI]
-  Facade[FlightExplorer]
-  Filter[SearchFilterEngine]
-  Agg[MapAggregator]
-  Repo[FlightRepository]
-  Api[FlightsApi Ktor]
-  Db[SQLDelight]
-  Server[api/serve.py]
-  Fixture[fixtures/flights.json]
-  Android --> Facade
-  iOS --> Facade
-  Facade --> Filter
-  Facade --> Agg
-  Facade --> Repo
-  Repo --> Api
-  Repo --> Db
-  Api --> Server
-  Server --> Fixture
+```text
+Compose / SwiftUI
+        │
+        ▼
+ FlightExplorer facade  (debounce 250ms, cancel superseded filter jobs)
+   ├── SearchFilterEngine
+   ├── MapAggregator
+   └── FlightRepository → FlightsApi (Ktor) + FlightLocalStore (SQLDelight)
+                              │
+                              ▼
+                     python3 api/serve.py :8080
+                              │
+                              ▼
+                     fixtures/flights.json
 ```
 
-**Why this shape**
+Native UIs are intentionally thin: discovery chrome, list/map, selection card, saved tab, status banners.
 
-- **Facade + StateFlows** — list/map/saved stay in parity without duplicating filter or selection rules per platform.
-- **SQLDelight** — typed shared schema for flight cache + saved upserts; works offline.
-- **Ktor + serialization** — one HTTP/JSON path for Android (OkHttp) and iOS (Darwin).
-- **MapLibre (Android)** — destination map without a Google Maps API key (MapLibre GL JS in a WebView).
-- **MapKit (iOS)** — native annotations + polyline for the selected route.
+## Key decisions
+
+| Choice | Why |
+|--------|-----|
+| Python `api/serve.py` | One command, zero deps, serves the exact fixture envelope |
+| SQLDelight | Multiplatform, testable with in-memory JDBC driver, honest upsert semantics |
+| Ktor | Shared HTTP client with platform engines (OkHttp / Darwin / CIO) |
+| MapLibre GL JS in Android WebView | MapLibre without a Google Maps API key; markers show count + min points; route polyline on selection |
+| MapKit on iOS | Native gestures, annotations, polyline — matches “SwiftUI preferred” |
+| Facade + StateFlows | One selection model, one filtered set, list/map parity without duplicating rules |
+| 250ms search debounce | Keeps typing smooth against 1k rows; latest query wins |
 
 ## Assumptions
 
-- “Route” on the map is a straight origin→destination polyline (not a real airway).
-- Default discovery date window is the fixture span `2027-02-01`…`2027-04-01` so results appear immediately.
-- Multi-program filters are OR within the program dimension; cabin/date/points/origin/dest AND across dimensions.
-- Android emulator reaches the host API at `10.0.2.2:8080`; iOS simulator at `127.0.0.1:8080`.
+1. **Route connector** = map polyline from origin coordinates → destination coordinates when a flight is selected (list or map).
+2. **Android map** uses MapLibre **GL JS** (demotiles style) embedded in a WebView rather than the native MapLibre Android SDK — still MapLibre, still pan/zoom/markers/route, no Google key.
+3. **Default date range** = fixture full span `2027-02-01`…`2027-04-01` so results appear immediately.
+4. **Points filter** is opt-in via an on/off control; when on, the slider value is an inclusive max.
+5. **Empty filtered results** with a successful cache are UI “0 flights”, not network `Empty` (network `Empty` means API returned zero flights).
+6. Cross-device sync and offline map tiles are out of scope per PDF.
 
 ## Tradeoffs
 
-| Choice | Tradeoff |
-|--------|----------|
-| MapLibre via WebView | Faster to ship without native MapLibre SDK / tokens; slightly heavier WebView vs native GL |
-| 250ms text debounce | Snappy typing vs one extra quarter-second before filter apply |
-| jvmTest (not commonTest android) | Runs on CI/desktop without emulator; same domain + SQLDelight + mock Ktor |
-| Python stdlib HTTP server | One-command local API; not production-hardened |
+- **iOS build on this Mac mini:** only Command Line Tools were installed (no `Xcode.app`), so the iOS app could not be compiled/run/recorded here. Full SwiftUI sources + Xcode project are included; build requires installing Xcode.
+- **Android map = WebView MapLibre JS** instead of native MapLibre SDK — faster to ship markers/labels/route without annotation-plugin churn; needs network for style/tiles (offline tiles not required).
+- **Swift bridge** polls StateFlow snapshots (~150ms) instead of SKIE Flow adapters — simple and reliable for a takehome; fine for 1k rows.
+- Golden tests run on the **JVM** target (`:shared:jvmTest`) with the real fixture as a resource — same shared code iOS/Android use.
 
-## Verification
+## Tests run
 
-**Automated**
+```bash
+./gradlew :shared:jvmTest
+# BUILD SUCCESSFUL — SearchFilterEngineTest, MapAggregatorTest, FlightRepositoryTest
+```
+
+Covered: inclusive date bounds, inclusive max points (including exact boundary present in fixture), program OR + cabin AND, city/IATA trim/casefold, empty filters = all 1000, map count/min points, cache replace, offline-stale on failed refresh, error with no cache, saved upsert without dupes, saved survives empty API response.
+
+```bash
+./gradlew :androidApp:assembleDebug
+# BUILD SUCCESSFUL
+```
+
+```bash
+python3 api/serve.py &  curl localhost:8080/flights  # HTTP 200, 1000 flights
+```
+
+## Manual checklist
+
+| Check | Android | iOS |
+|-------|---------|-----|
+| API one-command + load flights | Ready (assembleDebug + API smoke) | Needs Xcode |
+| Debounced origin/dest search | Implemented | Implemented |
+| Filter chips + reset + result count | Implemented | Implemented |
+| List/map selection parity | Implemented | Implemented |
+| Destination markers count + min pts | Implemented (MapLibre JS) | Implemented (MapKit) |
+| Route connector + selection card Save/Remove | Implemented | Implemented |
+| Saved tab ignores discovery filters | Implemented | Implemented |
+| Offline stale banner + cached search | Implemented (verify on emulator) | Needs Xcode |
+| Error + retry with empty cache | Implemented | Implemented |
+| A11y labels on filters/rows/save | Implemented | Implemented |
+
+### Offline demo steps (both apps)
+
+1. `python3 api/serve.py`
+2. Launch app; confirm flights + result count.
+3. Search `BOS`, enable Business cabin, save a flight.
+4. Switch List ↔ Map; confirm same selection + route.
+5. Open Saved tab; confirm flight present.
+6. Stop API; force-stop app; relaunch.
+7. Confirm stale/offline banner, filters still work, Saved still works, Remove works.
+8. (Optional) clear app data, launch with API down → error + Retry.
+
+## AI use
+
+Cursor agents implemented the plan against the PDF + research notes. Human/agent verification: golden `jvmTest` suite against the real fixture, Android `assembleDebug`, API curl smoke. iOS compile/recording blocked by missing Xcode on the build machine — Swift sources were written to match the shared facade contracts (`kind` / `errorMessageOrNull` helpers added specifically to harden Swift interop).
+
+## Recording
+
+**Not captured in this environment:** no Xcode.app (iOS) and no interactive emulator session for a polished dual-app screen recording.
+
+Suggested capture once Xcode + emulator are available:
+
+1. Start `python3 api/serve.py`.
+2. Record Android emulator: search → chips → list select → map route → save → Saved tab → kill API → relaunch stale banner.
+3. Record iOS simulator with the same script.
+4. Drop files under the project Agent Store `media/` (e.g. `media/flight-explorer-android.mp4`, `media/flight-explorer-ios.mp4`).
+
+## How to build / test (short)
 
 ```bash
 export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-./gradlew :shared:jvmTest   # green — filter bounds, aggregation, persistence, offline stale
-./gradlew :androidApp:assembleDebug   # green on this Mac mini
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+python3 api/serve.py          # terminal 1
+./gradlew :shared:jvmTest :androidApp:installDebug
+open iosApp/RoameStarter.xcodeproj   # requires Xcode.app
 ```
-
-**API smoke**
-
-```bash
-python3 api/serve.py
-curl -s http://127.0.0.1:8080/flights | python3 -c "import sys,json; print(len(json.load(sys.stdin)['flights']))"
-# → 1000
-```
-
-**Manual checklist (Android emulator)**
-
-- [ ] Debounced origin/dest typing
-- [ ] Chips + reset
-- [ ] List/map selection parity + route line
-- [ ] Save / remove honesty + saved row bookmarks
-- [ ] Kill API → OfflineStale banner + cached search/saved
-- [ ] TalkBack-ish smoke on filters/rows/Save
-
-**iOS**
-
-SwiftUI sources are complete under `iosApp/`. Full `xcodebuild` was **blocked on this machine** (CLT only; no `Xcode.app`). Build on a Mac with Xcode 16+ after `python3 api/serve.py`.
-
-## AI disclosure
-
-Cursor agents assisted with scaffolding, shared domain/repo/facade, Compose/SwiftUI screens, tests, and docs. Output was verified with the golden `jvmTest` suite, API curl smoke, and `assembleDebug`. iOS compile was not available on the build Mac mini (no full Xcode); sources were authored for MapKit parity with Android.
-
-## Demo recording
-
-If a recording is attached under the project store `media/`, it covers search → chips → list/map selection → save → reopen with API stopped. Otherwise follow the Offline demo steps in `README.md`.

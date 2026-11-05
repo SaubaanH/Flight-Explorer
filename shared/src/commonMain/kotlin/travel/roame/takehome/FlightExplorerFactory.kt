@@ -12,7 +12,16 @@ object FlightExplorerFactory {
     fun create(
         baseUrl: String,
         driverFactory: DatabaseDriverFactory,
-        scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    ): FlightExplorer = create(
+        baseUrl = baseUrl,
+        driverFactory = driverFactory,
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    )
+
+    fun create(
+        baseUrl: String,
+        driverFactory: DatabaseDriverFactory,
+        scope: CoroutineScope,
     ): FlightExplorer {
         val store = FlightLocalStore(driverFactory.createDriver())
         val api = FlightsApi(baseUrl)

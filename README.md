@@ -1,85 +1,86 @@
 # Flight Explorer (Roame takehome)
 
-Shared-first Kotlin Multiplatform flight discovery: Compose (Android) + SwiftUI (iOS) over one `FlightExplorer` facade, local Python API, SQLDelight cache/saved, MapLibre (Android) + MapKit (iOS).
+Kotlin Multiplatform flight discovery app: **SwiftUI (iOS)** + **Jetpack Compose (Android)** over a shared data layer (Ktor + SQLDelight + filter/map logic). Local API serves the fixture at `fixtures/flights.json`.
 
-## Quick start
+## One-command local API
 
 ```bash
-# 1) Local API (serves fixtures/flights.json)
 python3 api/serve.py
-# → http://127.0.0.1:8080/flights
-
-# 2) Shared golden tests (need a JDK; Android Studio JBR works)
-export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
-./gradlew :shared:jvmTest
-
-# 3) Android debug APK
-./gradlew :androidApp:assembleDebug
-# APK: androidApp/build/outputs/apk/debug/androidApp-debug.apk
 ```
 
-Open the folder in Android Studio and run `androidApp` on an emulator. On a Mac with full Xcode, open `iosApp/RoameStarter.xcodeproj` and run `RoameStarter` on an iPhone simulator.
+Serves `GET http://127.0.0.1:8080/flights` (HTTP 200, fixture envelope). Smoke check:
 
-## Base URLs
-
-| Client | Base URL |
-|--------|----------|
-| Android emulator | `http://10.0.2.2:8080` |
-| iOS simulator | `http://127.0.0.1:8080` |
-| Physical device | `http://<your-LAN-IP>:8080` |
-
-Android cleartext + `INTERNET` are enabled. iOS allows local networking via ATS (`NSAllowsLocalNetworking`).
-
-## Architecture
-
-```
-Android Compose / iOS SwiftUI
-        │
-        ▼
-  FlightExplorer facade  (250ms debounce, StateFlows)
-        │
-   ┌────┼────┐
-   ▼    ▼    ▼
- Filter  MapAggregator  FlightRepository
-                          │         │
-                     FlightsApi   SQLDelight
-                     (Ktor)     (cache + saved)
-                          │
-                    api/serve.py :8080
-                          │
-                  fixtures/flights.json
+```bash
+curl -s http://127.0.0.1:8080/flights | python3 -c "import sys,json; print(len(json.load(sys.stdin)['flights']))"
 ```
 
-## Features
+## Prerequisites
 
-- Discovery filters: origin/dest (debounced 250ms), inclusive date range (default `2027-02-01`…`2027-04-01`), cabin, max points, multi-program OR
-- Live result count, removable active-filter chips, one-tap reset
-- List + map share one selection; filter-out clears selection
-- Map markers show destination count + lowest points; selected flight draws origin→dest route
-- Saved flights (SQLDelight), independent of discovery filters; bookmark marks on list rows
-- Honest load UX: Loading / Ready / Empty / OfflineStale (cache + banner) / Error + retry
-- Accessibility labels on filters, rows, markers, Save/Remove
+- **JDK** via Android Studio JBR (or any JDK 17+). Example:
 
-## Offline demo
+  ```bash
+  export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+  export ANDROID_HOME="$HOME/Library/Android/sdk"
+  ```
 
-1. Start API, launch app, wait until flights load, save 1–2 flights.
-2. Stop API (`Ctrl+C` on `serve.py`).
-3. Pull to refresh / Retry — expect **Offline — showing cached flights** banner; search still works on cache; Saved tab still lists bookmarks.
-4. Clear app data / fresh install with API down — expect Error + Retry (no cache).
+- **Android:** Android Studio / SDK 37, emulator or device.
+- **iOS:** macOS with **Xcode** (full app, not only Command Line Tools). Open `iosApp/RoameStarter.xcodeproj`.
+- Python 3 (stdlib only) for the API.
+
+## Run Android
+
+1. Start the API: `python3 api/serve.py`
+2. Start an emulator (or device; for a physical device set the machine LAN IP — see below).
+3. From repo root:
+
+   ```bash
+   ./gradlew :androidApp:installDebug
+   # or Run `androidApp` from Android Studio
+   ```
+
+Emulator base URL (baked in): `http://10.0.2.2:8080`.
+
+## Run iOS
+
+1. Start the API: `python3 api/serve.py`
+2. Open `iosApp/RoameStarter.xcodeproj` in Xcode 16+/26+.
+3. Select the `RoameStarter` scheme + iPhone simulator → Run.
+4. First build runs `./gradlew :shared:embedAndSignAppleFrameworkForXcode` (needs `JAVA_HOME`). An editor “No such module Shared” warning clears after the first successful build.
+
+Simulator base URL (baked in): `http://127.0.0.1:8080`.
+
+### Physical devices
+
+Point both apps at `http://<your-lan-ip>:8080` (edit `ApiBaseUrls` usage in `MainActivity` / `FlightExplorerModel`). Ensure the phone and Mac are on the same network and the API binds `0.0.0.0:8080` (default).
 
 ## Tests
 
 ```bash
-export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 ./gradlew :shared:jvmTest
 ```
 
-Golden cases cover inclusive dates/points, program OR + cabin AND, city vs IATA, empty = all, map aggregation, cache replace, offline stale, saved CRUD honesty.
+Golden fixture tests cover search/filter boundaries, map aggregation, persistence, offline-stale refresh, and saved upsert/remove.
 
-## iOS build note
+## Offline demo
 
-This Mac mini may have Command Line Tools only (no full `Xcode.app`). SwiftUI sources under `iosApp/` are complete (MapKit, Discover/List/Map/Saved). Building requires Xcode 16+ so the Shared framework script can run. Set `JAVA_HOME` to Android Studio’s JBR before the Xcode Kotlin build phase if `/usr/libexec/java_home` is empty.
+1. Start API + app; wait until flights load.
+2. Save at least one flight.
+3. Stop the API (`Ctrl+C` in the API terminal).
+4. Kill and reopen the app (or pull to refresh via Retry).
+5. Expect: **Offline — showing cached flights** banner, search/filters still work on cache, Saved tab still lists/removes saves.
+6. Clear app storage and launch with API down → **error + Retry** (no cache).
+
+## Project layout
+
+```
+api/serve.py          Local GET /flights
+fixtures/flights.json 1,000 fictional flights
+shared/               KMP models, filters, map aggregation, Ktor, SQLDelight, FlightExplorer facade
+androidApp/           Compose UI + MapLibre GL JS map
+iosApp/               SwiftUI UI + MapKit
+SUBMISSION.md         Architecture, tradeoffs, AI disclosure, checklist
+```
 
 ## Stack
 
-Kotlin 2.x · Gradle wrapper · Ktor + kotlinx.serialization · SQLDelight · Jetpack Compose · SwiftUI · MapLibre GL JS (WebView) · MapKit · Python 3 `:8080`
+Kotlin 2.4.21 · Gradle 9.7 · AGP 9.3 · Compose BOM 2026.09 · SQLDelight 2.1 · Ktor 3.1 · SwiftUI · MapKit · MapLibre GL JS (Android WebView)

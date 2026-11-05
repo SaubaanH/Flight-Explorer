@@ -38,13 +38,11 @@ kotlin {
             implementation(kotlin("test"))
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion")
         }
-        val jvmTest by getting {
-            dependencies {
-                implementation(kotlin("test"))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion")
-                implementation("io.ktor:ktor-client-mock:$ktorVersion")
-                implementation("app.cash.sqldelight:sqlite-driver:$sqlDelightVersion")
-            }
+        jvmTest.dependencies {
+            implementation(kotlin("test"))
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion")
+            implementation("io.ktor:ktor-client-mock:$ktorVersion")
+            implementation("app.cash.sqldelight:sqlite-driver:$sqlDelightVersion")
         }
         androidMain.dependencies {
             implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
