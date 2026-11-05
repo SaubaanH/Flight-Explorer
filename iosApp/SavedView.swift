@@ -37,7 +37,10 @@ struct SavedView: View {
         }
         .padding(.horizontal)
         .background(RoameTheme.canvas.ignoresSafeArea())
-        .sheet(item: $sheetItem) { item in
+        .sheet(item: $sheetItem, onDismiss: {
+            sheetItem = nil
+            model.select(nil)
+        }) { item in
             FlightDetailSheet(
                 flight: item.flight,
                 saved: true,
@@ -45,8 +48,12 @@ struct SavedView: View {
                 onRemove: {
                     model.removeSaved(item.flight.id)
                     sheetItem = nil
+                    model.select(nil)
                 },
-                onDismiss: { sheetItem = nil }
+                onDismiss: {
+                    sheetItem = nil
+                    model.select(nil)
+                }
             )
         }
         .onChange(of: model.selectedFlight?.id) { _, newId in

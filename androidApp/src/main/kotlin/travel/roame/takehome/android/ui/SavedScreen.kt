@@ -85,8 +85,12 @@ fun SavedScreen(
             onRemove = {
                 explorer.removeSaved(flight.id)
                 detailFlightId = null
+                explorer.selectFlight(null)
             },
-            onDismiss = { detailFlightId = null },
+            onDismiss = {
+                detailFlightId = null
+                explorer.selectFlight(null)
+            },
         )
     }
 }

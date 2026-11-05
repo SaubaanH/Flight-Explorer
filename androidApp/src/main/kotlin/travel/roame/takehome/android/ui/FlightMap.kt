@@ -32,10 +32,13 @@ fun FlightMap(
     selectedFlight: Flight?,
     onClusterTap: (DestinationCluster) -> Unit,
     modifier: Modifier = Modifier,
+    /** Fade in after first paint — use over a RoutePreview placeholder in the detail sheet. */
+    revealWhenReady: Boolean = false,
 ) {
     val clustersState = rememberUpdatedState(clusters)
     val selectedState = rememberUpdatedState(selectedFlight)
     val onTapState = rememberUpdatedState(onClusterTap)
+    val reveal = revealWhenReady
     val bridge = remember {
         object {
             @JavascriptInterface
@@ -54,6 +57,10 @@ fun FlightMap(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
                 setBackgroundColor(AndroidColor.parseColor("#F0EEEA"))
+                if (reveal) {
+                    setBackgroundColor(AndroidColor.TRANSPARENT)
+                    alpha = 0f
+                }
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = true
@@ -75,11 +82,15 @@ fun FlightMap(
                     override fun onPageFinished(view: WebView?, url: String?) {
                         val js = buildUpdateJs(clustersState.value, selectedState.value)
                         view?.tag = js
-                        view?.evaluateJavascript(js, null)
+                        view?.evaluateJavascript(js) {
+                            if (reveal) {
+                                view.animate().alpha(1f).setDuration(120).start()
+                            }
+                        }
                     }
                 }
-                // Cache-bust so asset edits (attribution compact, etc.) show up on reinstall.
-                loadUrl("file:///android_asset/map.html?v=4")
+                // Cache-bust so asset edits show up on reinstall.
+                loadUrl("file:///android_asset/map.html?v=5")
             }
         },
         update = { webView ->

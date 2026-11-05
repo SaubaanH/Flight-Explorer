@@ -104,13 +104,23 @@ struct DiscoveryView: View {
 
             }
         }
-        .sheet(item: $sheetItem) { item in
+        .sheet(item: $sheetItem, onDismiss: {
+            sheetItem = nil
+            model.select(nil)
+        }) { item in
             FlightDetailSheet(
                 flight: item.flight,
                 saved: model.isSaved(item.flight.id),
                 onSave: { model.save(item.flight) },
-                onRemove: { model.removeSaved(item.flight.id) },
-                onDismiss: { sheetItem = nil }
+                onRemove: {
+                    model.removeSaved(item.flight.id)
+                    sheetItem = nil
+                    model.select(nil)
+                },
+                onDismiss: {
+                    sheetItem = nil
+                    model.select(nil)
+                }
             )
         }
         .onChange(of: model.selectedFlight?.id) { _, newId in

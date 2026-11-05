@@ -212,8 +212,15 @@ fun SharedTransitionScope.DiscoveryScreen(
             flight = flight,
             saved = flight.id in savedIds,
             onSave = { explorer.saveFlight(flight) },
-            onRemove = { explorer.removeSaved(flight.id) },
-            onDismiss = { detailFlightId = null },
+            onRemove = {
+                explorer.removeSaved(flight.id)
+                detailFlightId = null
+                explorer.selectFlight(null)
+            },
+            onDismiss = {
+                detailFlightId = null
+                explorer.selectFlight(null)
+            },
         )
     }
 

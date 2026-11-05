@@ -1,5 +1,7 @@
 package travel.roame.takehome.android.ui
 
+import android.graphics.drawable.ColorDrawable
+import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,11 +25,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -36,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import travel.roame.takehome.model.Flight
 
 /**
@@ -57,6 +62,14 @@ fun FlightDetailSheet(
             decorFitsSystemWindows = false,
         ),
     ) {
+        // Avoid the default Dialog white flash over Discover for a frame.
+        val view = LocalView.current
+        SideEffect {
+            (view.parent as? DialogWindowProvider)?.window?.setBackgroundDrawable(
+                ColorDrawable(AndroidColor.TRANSPARENT),
+            )
+        }
+
         Box(Modifier.fillMaxSize()) {
             Box(
                 Modifier
@@ -108,17 +121,25 @@ fun FlightDetailSheet(
                         color = RoameColors.Muted,
                     )
 
+                    // Instant route sketch under the WebView so the card never flashes blank
+                    // while MapLibre boots.
                     Box(
                         Modifier
                             .fillMaxWidth()
                             .height(180.dp)
-                            .clip(RoameShapes.Card),
+                            .clip(RoameShapes.Card)
+                            .background(Color(0xFFF0EEEA)),
                     ) {
+                        RoutePreview(
+                            flight = flight,
+                            modifier = Modifier.fillMaxSize(),
+                        )
                         FlightMap(
                             clusters = emptyList(),
                             selectedFlight = flight,
                             onClusterTap = {},
                             modifier = Modifier.fillMaxWidth().height(180.dp),
+                            revealWhenReady = true,
                         )
                     }
 

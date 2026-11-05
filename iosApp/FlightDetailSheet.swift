@@ -8,15 +8,13 @@ struct SelectedFlightItem: Identifiable {
 }
 
 /// Bottom sheet for a selected flight: details + embedded route map + Save/Remove.
-/// Sized just tall enough to show Save — no empty stretch below the details.
+/// Height follows content — no empty stretch below the action button.
 struct FlightDetailSheet: View {
     let flight: Flight
     let saved: Bool
     let onSave: () -> Void
     let onRemove: () -> Void
     let onDismiss: () -> Void
-
-    private let fittedDetent = PresentationDetent.height(560)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -54,12 +52,13 @@ struct FlightDetailSheet: View {
             }
         }
         .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(RoameTheme.canvas.ignoresSafeArea())
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .presentationDetents([.height(520)])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(RoameTheme.canvas)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Selected flight details")
-        .presentationDetents([fittedDetent, .large])
-        .presentationDragIndicator(.visible)
     }
 
     private func detailRow(_ label: String, _ value: String) -> some View {
