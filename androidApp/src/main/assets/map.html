@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<link href="file:///android_asset/maplibre/maplibre-gl.css" rel="stylesheet"/>
+<script src="file:///android_asset/maplibre/maplibre-gl.js"></script>
+<style>
+  html, body, #map { margin:0; padding:0; height:100%; width:100%; background:#F0EEEA; }
+  #status {
+    position:absolute; z-index:2; left:12px; right:12px; top:12px;
+    font: 600 13px/1.3 -apple-system, BlinkMacSystemFont, sans-serif;
+    color:#C9184A; background:#FFE6EE; border-radius:14px; padding:10px 12px;
+    display:none;
+  }
+  .marker {
+    background:#E83A6F; color:white; border-radius:999px; padding:6px 10px;
+    font: 600 11px/1.2 -apple-system, BlinkMacSystemFont, sans-serif;
+    box-shadow:0 2px 8px rgba(0,0,0,.25); white-space:nowrap;
+    border:1px solid rgba(255,255,255,.35);
+  }
+</style>
+</head>
+<body>
+<div id="status"></div>
+<div id="map"></div>
+<script>
+  const statusEl = document.getElementById('status');
+  function showStatus(msg) {
+    statusEl.style.display = 'block';
+    statusEl.textContent = msg;
+  }
+
+  // Key-free styles (no Carto API key). Try OpenFreeMap → MapLibre demotiles → Esri raster.
+  const STYLES = [
+    'https://tiles.openfreemap.org/styles/liberty',
+    'https://demotiles.maplibre.org/style.json',
+    {
+      version: 8,
+      sources: {
+        esri: {
+          type: 'raster',
+          tiles: ['https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'],
+          tileSize: 256,
+          attribution: '© Esri'
+        }
+      },
+      layers: [{ id: 'esri', type: 'raster', source: 'esri' }]
+    }
+  ];
+
+  let map;
+  let markerObjs = [];
+  let routeSourceReady = false;
+  let pending = null;
+  let styleIndex = 0;
+
+  function onMapReady() {
+    statusEl.style.display = 'none';
+    if (pending) {
+      applyUpdate(pending.markers, pending.route);
+      pending = null;
+    }
+  }
+
+  function createMap(style) {
+    map = new maplibregl.Map({
+      container: 'map',
+      style: style,
+      center: [0, 20],
+      zoom: 1.2,
+      attributionControl: true
+    });
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    map.on('error', (e) => {
+      const msg = (e && e.error && e.error.message) ? e.error.message : 'Map tile error';
+      console.log('map error', msg);
+      if (styleIndex < STYLES.length - 1) {
+        styleIndex += 1;
+        try { map.remove(); } catch (_) {}
+        routeSourceReady = false;
+        createMap(STYLES[styleIndex]);
+      } else {
+        showStatus(msg);
+      }
+    });
+    map.on('load', onMapReady);
+  }
+
+  try {
+    if (typeof maplibregl === 'undefined') {
+      showStatus('Map library failed to load.');
+    } else {
+      createMap(STYLES[0]);
+    }
+  } catch (err) {
+    showStatus('Map init error: ' + err);
+  }
+
+  function ensureRouteLayer() {
+    if (!map || routeSourceReady) return;
+    map.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map.addLayer({
+      id: 'route-line',
+      type: 'line',
+      source: 'route',
+      paint: { 'line-color': '#E83A6F', 'line-width': 3 }
+    });
+    routeSourceReady = true;
+  }
+
+  function applyUpdate(markers, route) {
+    if (!map) return;
+    markerObjs.forEach(m => m.remove());
+    markerObjs = [];
+    const bounds = new maplibregl.LngLatBounds();
+    (markers || []).forEach(m => {
+      const el = document.createElement('div');
+      el.className = 'marker';
+      el.textContent = m.code + ' · ' + m.count + ' · ' + Number(m.minPoints).toLocaleString() + 'pts';
+      el.setAttribute('aria-label', m.city + ' ' + m.count + ' flights from ' + m.minPoints + ' points');
+      el.onclick = () => {
+        if (window.AndroidBridge && AndroidBridge.onMarkerClick) {
+          AndroidBridge.onMarkerClick(m.code);
+        }
+      };
+      const marker = new maplibregl.Marker({ element: el }).setLngLat([m.lng, m.lat]).addTo(map);
+      markerObjs.push(marker);
+      bounds.extend([m.lng, m.lat]);
+    });
+    if (map.isStyleLoaded()) {
+      ensureRouteLayer();
+      if (route) {
+        map.getSource('route').setData({
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: [[route.oLng, route.oLat], [route.dLng, route.dLat]]
+          }
+        });
+        bounds.extend([route.oLng, route.oLat]);
+        bounds.extend([route.dLng, route.dLat]);
+      } else if (map.getSource('route')) {
+        map.getSource('route').setData({ type: 'FeatureCollection', features: [] });
+      }
+    }
+    if (!bounds.isEmpty()) {
+      map.fitBounds(bounds, { padding: 48, maxZoom: 5, duration: 500 });
+    }
+  }
+
+  window.updateFlightMap = function(markers, route) {
+    if (!map || !map.isStyleLoaded()) {
+      pending = { markers, route };
+      return;
+    }
+    applyUpdate(markers, route);
+  };
+</script>
+</body>
+</html>

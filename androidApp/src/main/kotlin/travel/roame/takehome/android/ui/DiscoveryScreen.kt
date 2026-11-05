@@ -274,10 +274,10 @@ fun DiscoveryScreen(
                     }
                 }
                 DiscoverPane.Map -> {
+                    // Don't clip the WebView parent — Compose clip() blanks MapLibre/WebView.
                     Box(
                         Modifier
                             .fillMaxSize()
-                            .clip(RoameShapes.Card)
                             .border(1.dp, RoameColors.Hairline, RoameShapes.Card),
                     ) {
                         FlightMap(
