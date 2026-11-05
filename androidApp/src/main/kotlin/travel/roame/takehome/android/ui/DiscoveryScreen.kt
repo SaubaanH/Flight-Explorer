@@ -51,7 +51,7 @@ import kotlin.math.min
 
 private enum class DiscoverPane { List, Map }
 
-internal val SearchSharedSpring = spring<Rect>(dampingRatio = 0.9f, stiffness = 520f)
+internal val SearchSharedSpring = spring<Rect>(dampingRatio = 0.85f, stiffness = 400f)
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
