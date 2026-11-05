@@ -53,13 +53,19 @@ struct FlightDetailSheet: View {
             }
         }
         .padding(16)
-        .padding(.bottom, 8)
+        .padding(.bottom, 24)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .presentationDetents([.height(520)])
-        .presentationDragIndicator(.visible)
-        .presentationBackground(RoameTheme.canvas)
+        .background(RoameTheme.canvas)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Selected flight details")
+        // Grabber for the custom overlay sheet (system .sheet chrome is gone).
+        .overlay(alignment: .top) {
+            Capsule()
+                .fill(RoameTheme.muted.opacity(0.35))
+                .frame(width: 36, height: 4)
+                .padding(.top, 10)
+        }
+        .padding(.top, 6)
     }
 
     private func detailRow(_ label: String, _ value: String) -> some View {

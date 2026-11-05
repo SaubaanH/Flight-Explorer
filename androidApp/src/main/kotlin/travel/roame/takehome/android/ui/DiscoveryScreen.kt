@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -77,7 +78,10 @@ fun SharedTransitionScope.DiscoveryScreen(
         if (selectedFlight == null) detailFlightId = null
     }
 
+    val context = LocalContext.current
     fun openDetail(flight: Flight) {
+        // Fit the route while the slower sheet animation runs.
+        SharedDetailRouteMap.prepare(context, flight)
         explorer.selectFlight(flight.id)
         detailFlightId = flight.id
     }

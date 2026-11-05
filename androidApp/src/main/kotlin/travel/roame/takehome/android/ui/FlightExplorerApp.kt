@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -96,11 +97,13 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
         explorer.clearSaveError()
     }
 
+    val appContext = LocalContext.current
+    LaunchedEffect(Unit) {
+        SharedDetailRouteMap.prewarm(appContext)
+    }
+
     SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize()) {
-            // Warm MapLibre JS/style while browsing so detail sheets open faster.
-            MapLibrePrewarm()
-
             // Keep the bottom bar in the Scaffold layout always so Discover padding
             // (and the search pill bounds) stay stable during the shared morph.
             Scaffold(

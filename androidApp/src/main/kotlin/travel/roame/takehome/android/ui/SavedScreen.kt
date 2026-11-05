@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import travel.roame.takehome.FlightExplorer
 import travel.roame.takehome.model.Flight
@@ -29,6 +30,7 @@ fun SavedScreen(
     explorer: FlightExplorer,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     var detailFlightId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(selectedFlight?.id) {
@@ -63,6 +65,7 @@ fun SavedScreen(
                             selected = flight.id == selectedFlight?.id,
                             saved = true,
                             onClick = {
+                                SharedDetailRouteMap.prepare(context, flight)
                                 explorer.selectFlight(flight.id)
                                 detailFlightId = flight.id
                             },

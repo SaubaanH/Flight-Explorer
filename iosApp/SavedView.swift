@@ -37,25 +37,16 @@ struct SavedView: View {
         }
         .padding(.horizontal)
         .background(RoameTheme.canvas.ignoresSafeArea())
-        .sheet(item: $sheetItem, onDismiss: {
-            sheetItem = nil
-            model.select(nil)
-        }) { item in
-            FlightDetailSheet(
-                flight: item.flight,
-                saved: true,
-                onSave: { model.save(item.flight) },
-                onRemove: {
-                    model.removeSaved(item.flight.id)
-                    sheetItem = nil
-                    model.select(nil)
-                },
-                onDismiss: {
-                    sheetItem = nil
-                    model.select(nil)
-                }
-            )
-        }
+        .flightDetailOverlay(
+            item: $sheetItem,
+            saved: { _ in true },
+            onSave: { model.save($0) },
+            onRemove: { flight in
+                model.removeSaved(flight.id)
+                model.select(nil)
+            },
+            onDismiss: { model.select(nil) }
+        )
         .onChange(of: model.selectedFlight?.id) { _, newId in
             if newId == nil { sheetItem = nil }
         }
@@ -63,7 +54,9 @@ struct SavedView: View {
 
     private func openDetail(_ id: String) {
         model.select(id)
-        if let flight = model.flight(for: id) {
+        guard let flight = model.flight(for: id) else { return }
+        SharedRouteMapLibre.shared.prepare(flight)
+        withAnimation(FlightDetailPresentation.openAnimation) {
             sheetItem = SelectedFlightItem(flight: flight)
         }
     }

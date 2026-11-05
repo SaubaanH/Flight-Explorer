@@ -104,25 +104,16 @@ struct DiscoveryView: View {
 
             }
         }
-        .sheet(item: $sheetItem, onDismiss: {
-            sheetItem = nil
-            model.select(nil)
-        }) { item in
-            FlightDetailSheet(
-                flight: item.flight,
-                saved: model.isSaved(item.flight.id),
-                onSave: { model.save(item.flight) },
-                onRemove: {
-                    model.removeSaved(item.flight.id)
-                    sheetItem = nil
-                    model.select(nil)
-                },
-                onDismiss: {
-                    sheetItem = nil
-                    model.select(nil)
-                }
-            )
-        }
+        .flightDetailOverlay(
+            item: $sheetItem,
+            saved: { model.isSaved($0.id) },
+            onSave: { model.save($0) },
+            onRemove: { flight in
+                model.removeSaved(flight.id)
+                model.select(nil)
+            },
+            onDismiss: { model.select(nil) }
+        )
         .onChange(of: model.selectedFlight?.id) { _, newId in
             if newId == nil { sheetItem = nil }
         }
@@ -133,7 +124,10 @@ struct DiscoveryView: View {
 
     private func openDetail(_ id: String) {
         model.select(id)
-        if let flight = model.flight(for: id) {
+        guard let flight = model.flight(for: id) else { return }
+        // Fit the route now — before the slower sheet animation starts.
+        SharedRouteMapLibre.shared.prepare(flight)
+        withAnimation(FlightDetailPresentation.openAnimation) {
             sheetItem = SelectedFlightItem(flight: flight)
         }
     }

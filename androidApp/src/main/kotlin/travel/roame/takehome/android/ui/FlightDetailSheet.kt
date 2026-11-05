@@ -2,6 +2,13 @@ package travel.roame.takehome.android.ui
 
 import android.graphics.drawable.ColorDrawable
 import android.graphics.Color as AndroidColor
+import android.widget.FrameLayout
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,12 +32,18 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -38,13 +51,18 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import travel.roame.takehome.model.Flight
 
+private val SheetOpenMillis = 560
+private val SheetCloseMillis = 380
+
 /**
  * Bottom sheet for a selected flight: details + route map + Save/Remove.
+ * Opens with a slower slide so [SharedDetailRouteMap.prepare] can finish fitting.
  */
 @Composable
 fun FlightDetailSheet(
@@ -54,8 +72,16 @@ fun FlightDetailSheet(
     onRemove: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(flight.id) {
+        visible = true
+    }
+
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            visible = false
+            onDismiss()
+        },
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
             decorFitsSystemWindows = false,
@@ -69,105 +95,124 @@ fun FlightDetailSheet(
         }
 
         Box(Modifier.fillMaxSize()) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.4f))
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = onDismiss,
-                    ),
-            )
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .semantics { contentDescription = "Selected flight details" },
-                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-                color = RoameColors.Surface,
-                shadowElevation = 6.dp,
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(SheetOpenMillis / 2)),
+                exit = fadeOut(tween(SheetCloseMillis / 2)),
             ) {
-                Column(
+                Box(
                     Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.4f))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {
+                                visible = false
+                                onDismiss()
+                            },
+                        ),
+                )
+            }
+
+            AnimatedVisibility(
+                visible = visible,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = slideInVertically(
+                    animationSpec = tween(SheetOpenMillis),
+                    initialOffsetY = { it },
+                ) + fadeIn(tween(SheetOpenMillis / 2)),
+                exit = slideOutVertically(
+                    animationSpec = tween(SheetCloseMillis),
+                    targetOffsetY = { it },
+                ) + fadeOut(tween(SheetCloseMillis / 2)),
+            ) {
+                Surface(
+                    modifier = Modifier
                         .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 16.dp)
-                        .padding(bottom = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                        .semantics { contentDescription = "Selected flight details" },
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                    color = RoameColors.Surface,
+                    shadowElevation = 6.dp,
                 ) {
-                    Box(
+                    Column(
                         Modifier
-                            .padding(top = 10.dp, bottom = 2.dp)
-                            .align(Alignment.CenterHorizontally)
-                            .width(36.dp)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(RoameColors.Muted.copy(alpha = 0.35f)),
-                    )
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 16.dp)
+                            .padding(bottom = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(
+                            Modifier
+                                .padding(top = 10.dp, bottom = 2.dp)
+                                .align(Alignment.CenterHorizontally)
+                                .width(36.dp)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(RoameColors.Muted.copy(alpha = 0.35f)),
+                        )
 
-                    Text(
-                        "${flight.origin} → ${flight.destination}",
-                        fontFamily = FontFamily.Serif,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 24.sp,
-                        color = RoameColors.Ink,
-                    )
-                    Text(
-                        "${flight.originCity} → ${flight.destinationCity}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = RoameColors.Muted,
-                    )
+                        Text(
+                            "${flight.origin} → ${flight.destination}",
+                            fontFamily = FontFamily.Serif,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 24.sp,
+                            color = RoameColors.Ink,
+                        )
+                        Text(
+                            "${flight.originCity} → ${flight.destinationCity}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = RoameColors.Muted,
+                        )
 
-                    DetailRouteMap(flight = flight)
+                        DetailRouteMap(flight = flight)
 
-                    DetailRow(label = "Departure", value = flight.departureDate)
-                    DetailRow(label = "Cabin", value = flight.cabin)
-                    DetailRow(label = "Program", value = flight.program)
-                    Text(
-                        "%,d points".format(flight.points),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp,
-                        color = RoameColors.Ink,
-                    )
+                        DetailRow(label = "Departure", value = flight.departureDate)
+                        DetailRow(label = "Cabin", value = flight.cabin)
+                        DetailRow(label = "Program", value = flight.program)
+                        Text(
+                            "%,d points".format(flight.points),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp,
+                            color = RoameColors.Ink,
+                        )
 
-                    if (saved) {
-                        OutlinedButton(
-                            onClick = onRemove,
-                            shape = RoameShapes.Pill,
-                            border = BorderStroke(1.dp, RoameColors.Pink),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = RoameColors.Pink),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .semantics { contentDescription = "Remove saved flight" },
-                        ) {
-                            Text("Remove", fontWeight = FontWeight.SemiBold)
+                        if (saved) {
+                            OutlinedButton(
+                                onClick = onRemove,
+                                shape = RoameShapes.Pill,
+                                border = BorderStroke(1.dp, RoameColors.Pink),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = RoameColors.Pink),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics { contentDescription = "Remove saved flight" },
+                            ) {
+                                Text("Remove", fontWeight = FontWeight.SemiBold)
+                            }
+                        } else {
+                            Button(
+                                onClick = onSave,
+                                shape = RoameShapes.Pill,
+                                colors = ButtonDefaults.buttonColors(containerColor = RoameColors.Pink),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics { contentDescription = "Save flight" },
+                            ) {
+                                Text("Save", fontWeight = FontWeight.SemiBold, color = RoameColors.Ink)
+                            }
                         }
-                    } else {
-                        Button(
-                            onClick = onSave,
-                            shape = RoameShapes.Pill,
-                            colors = ButtonDefaults.buttonColors(containerColor = RoameColors.Pink),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .semantics { contentDescription = "Save flight" },
-                        ) {
-                            Text("Save", fontWeight = FontWeight.SemiBold, color = RoameColors.Ink)
-                        }
+                        Spacer(Modifier.height(4.dp))
                     }
-                    Spacer(Modifier.height(4.dp))
                 }
             }
         }
     }
 }
 
-/**
- * Real MapLibre map only — canvas stays hidden (beige) until fitBounds finishes,
- * so there's no sketch→map crossfade or world-map flash.
- */
 @Composable
 private fun DetailRouteMap(flight: Flight) {
+    val context = LocalContext.current
     Box(
         Modifier
             .fillMaxWidth()
@@ -175,12 +220,21 @@ private fun DetailRouteMap(flight: Flight) {
             .clip(RoameShapes.Card)
             .background(Color(0xFFF0EEEA)),
     ) {
-        FlightMap(
-            clusters = emptyList(),
-            selectedFlight = flight,
-            onClusterTap = {},
+        AndroidView(
             modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                FrameLayout(ctx).also { host ->
+                    SharedDetailRouteMap.attach(host, ctx)
+                }
+            },
+            update = { host ->
+                SharedDetailRouteMap.prepare(context, flight)
+                SharedDetailRouteMap.attach(host, context)
+            },
         )
+        DisposableEffect(flight.id) {
+            onDispose { /* keep shared WebView warm */ }
+        }
     }
 }
 

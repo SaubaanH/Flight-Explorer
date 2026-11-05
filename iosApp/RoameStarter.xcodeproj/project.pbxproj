@@ -20,6 +20,7 @@
 		A10000000000000000000033 /* RouteMapGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000034 /* RouteMapGeometry.swift */; };
 		A10000000000000000000035 /* RoutePreviewMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000036 /* RoutePreviewMapView.swift */; };
 		A10000000000000000000037 /* SharedRouteMapLibre.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000038 /* SharedRouteMapLibre.swift */; };
+		A10000000000000000000039 /* FlightDetailPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000003A /* FlightDetailPresenter.swift */; };
 		A10000000000000000000041 /* MapAssets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000042 /* MapAssets */; };
 /* End PBXBuildFile section */
 
@@ -39,6 +40,7 @@
 		A10000000000000000000034 /* RouteMapGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteMapGeometry.swift; sourceTree = "<group>"; };
 		A10000000000000000000036 /* RoutePreviewMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePreviewMapView.swift; sourceTree = "<group>"; };
 		A10000000000000000000038 /* SharedRouteMapLibre.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedRouteMapLibre.swift; sourceTree = "<group>"; };
+		A1000000000000000000003A /* FlightDetailPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlightDetailPresenter.swift; sourceTree = "<group>"; };
 		A10000000000000000000042 /* MapAssets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = MapAssets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -59,6 +61,7 @@
 				A10000000000000000000034 /* RouteMapGeometry.swift */,
 				A10000000000000000000036 /* RoutePreviewMapView.swift */,
 				A10000000000000000000038 /* SharedRouteMapLibre.swift */,
+				A1000000000000000000003A /* FlightDetailPresenter.swift */,
 				A10000000000000000000042 /* MapAssets */,
 				A10000000000000000000004 /* Info.plist */,
 				A10000000000000000000006 /* Products */,
@@ -162,6 +165,7 @@
 				A10000000000000000000033 /* RouteMapGeometry.swift in Sources */,
 				A10000000000000000000035 /* RoutePreviewMapView.swift in Sources */,
 				A10000000000000000000037 /* SharedRouteMapLibre.swift in Sources */,
+				A10000000000000000000039 /* FlightDetailPresenter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
