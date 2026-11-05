@@ -44,7 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -179,13 +178,7 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
                             enter = EnterTransition.None,
                             exit = ExitTransition.None,
                             boundsTransform = { _, _ -> SearchSharedSpring },
-                            // scaleToBounds: lay out once at full size, then GPU-scale from the
-                            // pill — content stays visible (no blank flash) and avoids per-frame
-                            // remasure jank from RemeasureToBounds.
-                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(
-                                contentScale = ContentScale.FillBounds,
-                                alignment = Alignment.TopCenter,
-                            ),
+                            resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
                             clipInOverlayDuringTransition = OverlayClip(RoameShapes.Panel),
                         ),
                 )
