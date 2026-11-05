@@ -179,10 +179,10 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
                             enter = EnterTransition.None,
                             exit = ExitTransition.None,
                             boundsTransform = { _, _ -> SearchSharedSpring },
-                            // ScaleToBounds: lay out once at full size, then GPU-scale from the
+                            // scaleToBounds: lay out once at full size, then GPU-scale from the
                             // pill — content stays visible (no blank flash) and avoids per-frame
                             // remasure jank from RemeasureToBounds.
-                            resizeMode = SharedTransitionScope.ResizeMode.ScaleToBounds(
+                            resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(
                                 contentScale = ContentScale.FillBounds,
                                 alignment = Alignment.TopCenter,
                             ),

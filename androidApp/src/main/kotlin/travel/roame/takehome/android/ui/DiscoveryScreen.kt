@@ -104,7 +104,7 @@ fun SharedTransitionScope.DiscoveryScreen(
                         enter = EnterTransition.None,
                         exit = ExitTransition.None,
                         boundsTransform = { _, _ -> SearchSharedSpring },
-                        resizeMode = SharedTransitionScope.ResizeMode.ScaleToBounds(
+                        resizeMode = SharedTransitionScope.ResizeMode.scaleToBounds(
                             contentScale = ContentScale.FillBounds,
                             alignment = Alignment.TopCenter,
                         ),
