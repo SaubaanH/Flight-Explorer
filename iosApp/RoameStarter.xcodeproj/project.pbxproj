@@ -197,6 +197,7 @@
 					"$(inherited)",
 					"-framework",
 					Shared,
+					"-lsqlite3",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = travel.roame.takehome.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -226,6 +227,7 @@
 					"$(inherited)",
 					"-framework",
 					Shared,
+					"-lsqlite3",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = travel.roame.takehome.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";

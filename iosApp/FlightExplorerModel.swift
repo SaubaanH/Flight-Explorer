@@ -1,11 +1,12 @@
 import Foundation
-import Shared
 import Combine
+@preconcurrency import Shared
 
 /// Observable bridge over shared `FlightExplorer` via `FlightExplorerIos` snapshots.
 @MainActor
 final class FlightExplorerModel: ObservableObject {
-    private let host: FlightExplorerIos
+    // nonisolated(unsafe): KMP types are not Sendable; deinit must still close the host.
+    nonisolated(unsafe) private let host: FlightExplorerIos
     var explorer: FlightExplorer { host.explorer }
 
     @Published var originText: String = ""
@@ -55,21 +56,12 @@ final class FlightExplorerModel: ObservableObject {
         } else {
             maxPointsEnabled = false
         }
-        var programs = Set<String>()
-        for item in filters.programs {
-            if let program = item as? String { programs.insert(program) }
-        }
-        selectedPrograms = programs
-
+        selectedPrograms = Set(filters.programs)
         filteredFlights = snap.filteredFlights
         clusters = snap.clusters
         selectedFlight = snap.selectedFlight
         savedFlights = snap.savedFlights
-        var ids = Set<String>()
-        for item in snap.savedIds {
-            if let id = item as? String { ids.insert(id) }
-        }
-        savedIds = ids
+        savedIds = Set(snap.savedIds)
         browsingCluster = snap.browsingCluster
         resultCount = filteredFlights.count
         saveError = snap.saveError

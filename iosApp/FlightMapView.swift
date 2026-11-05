@@ -46,7 +46,7 @@ struct FlightMapView: View {
         }
         .mapControls {
             MapCompass()
-            MapZoomStepper()
+            MapPitchToggle()
         }
         .sheet(item: Binding(
             get: { model.browsingCluster.map(ClusterSheetItem.init) },
