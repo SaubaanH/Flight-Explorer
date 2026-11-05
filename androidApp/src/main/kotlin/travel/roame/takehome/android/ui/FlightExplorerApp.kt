@@ -7,6 +7,9 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -48,13 +51,22 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import travel.roame.takehome.FlightExplorer
+
+private enum class SearchPhase {
+    Hidden,
+    Expanding,
+    Open,
+    Collapsing,
+}
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun FlightExplorerApp(explorer: FlightExplorer) {
     var tab by remember { mutableIntStateOf(0) }
-    var isSearching by remember { mutableStateOf(false) }
+    var searchPhase by remember { mutableStateOf(SearchPhase.Hidden) }
+    val isSearching = searchPhase != SearchPhase.Hidden
     val snackbar = remember { SnackbarHostState() }
 
     val filters by explorer.filters.collectAsState()
@@ -81,7 +93,22 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
     }
 
     BackHandler(enabled = isSearching) {
-        isSearching = false
+        searchPhase = SearchPhase.Collapsing
+    }
+
+    LaunchedEffect(searchPhase) {
+        when (searchPhase) {
+            // Morph an empty shell first; compose the heavy form after bounds settle.
+            SearchPhase.Expanding -> {
+                delay(70)
+                searchPhase = SearchPhase.Open
+            }
+            SearchPhase.Collapsing -> {
+                delay(120)
+                searchPhase = SearchPhase.Hidden
+            }
+            else -> Unit
+        }
     }
 
     LaunchedEffect(saveError) {
@@ -115,7 +142,7 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
                         browsingCluster = browsing,
                         explorer = explorer,
                         isSearching = isSearching,
-                        onOpenSearch = { isSearching = true },
+                        onOpenSearch = { searchPhase = SearchPhase.Expanding },
                         onClearOrigin = {
                             originText = ""
                             explorer.setOriginQuery("")
@@ -142,35 +169,9 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
                 exit = ExitTransition.None,
                 modifier = Modifier.fillMaxSize(),
             ) {
-                SearchScreen(
-                    filters = filters,
-                    originText = originText,
-                    destText = destText,
-                    pointsSlider = pointsSlider,
-                    onOriginChange = {
-                        originText = it
-                        explorer.setOriginQuery(it)
-                    },
-                    onDestChange = {
-                        destText = it
-                        explorer.setDestinationQuery(it)
-                    },
-                    onDateFrom = { explorer.setDateRange(it, filters.dateTo) },
-                    onDateTo = { explorer.setDateRange(filters.dateFrom, it) },
-                    onCabin = explorer::setCabin,
-                    onPointsSlider = { pointsSlider = it },
-                    onPointsFinished = { explorer.setMaxPoints(pointsSlider.toInt()) },
-                    onTogglePointsFilter = {
-                        if (filters.maxPoints == null) {
-                            explorer.setMaxPoints(pointsSlider.toInt())
-                        } else {
-                            explorer.setMaxPoints(null)
-                        }
-                    },
-                    onToggleProgram = explorer::toggleProgram,
-                    onReset = ::resetAll,
-                    onClose = { isSearching = false },
-                    modifier = Modifier
+                // Cheap shared shell — remasuring this is cheap; form fades in separately.
+                Box(
+                    Modifier
                         .fillMaxSize()
                         .sharedBounds(
                             sharedContentState = rememberSharedContentState(key = "searchCard"),
@@ -180,8 +181,46 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
                             boundsTransform = { _, _ -> SearchSharedSpring },
                             resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
                             clipInOverlayDuringTransition = OverlayClip(RoameShapes.Panel),
-                        ),
-                )
+                        )
+                        .background(RoameColors.Canvas),
+                ) {
+                    AnimatedVisibility(
+                        visible = searchPhase == SearchPhase.Open,
+                        enter = fadeIn(animationSpec = tween(180)),
+                        exit = fadeOut(animationSpec = tween(100)),
+                    ) {
+                        SearchScreen(
+                            filters = filters,
+                            originText = originText,
+                            destText = destText,
+                            pointsSlider = pointsSlider,
+                            onOriginChange = {
+                                originText = it
+                                explorer.setOriginQuery(it)
+                            },
+                            onDestChange = {
+                                destText = it
+                                explorer.setDestinationQuery(it)
+                            },
+                            onDateFrom = { explorer.setDateRange(it, filters.dateTo) },
+                            onDateTo = { explorer.setDateRange(filters.dateFrom, it) },
+                            onCabin = explorer::setCabin,
+                            onPointsSlider = { pointsSlider = it },
+                            onPointsFinished = { explorer.setMaxPoints(pointsSlider.toInt()) },
+                            onTogglePointsFilter = {
+                                if (filters.maxPoints == null) {
+                                    explorer.setMaxPoints(pointsSlider.toInt())
+                                } else {
+                                    explorer.setMaxPoints(null)
+                                }
+                            },
+                            onToggleProgram = explorer::toggleProgram,
+                            onReset = ::resetAll,
+                            onClose = { searchPhase = SearchPhase.Collapsing },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
             }
         }
     }

@@ -1,7 +1,6 @@
 package travel.roame.takehome.android.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -33,7 +32,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -143,15 +141,10 @@ fun SearchScreen(
         unfocusedContainerColor = RoameColors.Surface,
     )
 
-    // Surface (not bare background) so sharedBounds morphs a real card like the pill.
-    // RectangleShape when settled; OverlayClip(Panel) rounds corners during the morph.
-    Surface(
-        modifier = modifier.fillMaxSize(),
-        color = RoameColors.Canvas,
-        shape = RectangleShape,
-    ) {
+    // Background/morph shell is provided by the caller — keep this composable content-only
+    // so sharedBounds can remasure a cheap empty card instead of this heavy form.
     Column(
-        Modifier
+        modifier
             .fillMaxSize()
             .statusBarsPadding(),
     ) {
@@ -312,6 +305,5 @@ fun SearchScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .semantics { contentDescription = "Apply search" },
         )
-    }
     }
 }
