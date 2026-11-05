@@ -38,6 +38,7 @@ enum SearchSummary {
 struct SearchPill: View {
     let summary: String
     let detail: String
+    var namespace: Namespace.ID?
     let onTap: () -> Void
 
     var body: some View {
@@ -61,23 +62,23 @@ struct SearchPill: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
+            .background {
+                let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
+                shape
                     .fill(RoameTheme.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(RoameTheme.hairline, lineWidth: 1)
-            )
+                    .overlay(shape.stroke(RoameTheme.hairline, lineWidth: 1))
+                    .modifier(SearchCardMatch(namespace: namespace))
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Open search filters")
     }
 }
 
-/// Full-screen search page (covers tabs via fullScreenCover).
+/// Full-screen search page that morphs from the Discover search pill.
 struct SearchScreen: View {
     @ObservedObject var model: FlightExplorerModel
+    var namespace: Namespace.ID?
     let onClose: () -> Void
 
     var body: some View {
@@ -209,7 +210,12 @@ struct SearchScreen: View {
                 .accessibilityLabel("Apply search")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(RoameTheme.canvas.ignoresSafeArea())
+        .background {
+            Rectangle()
+                .fill(RoameTheme.canvas)
+                .modifier(SearchCardMatch(namespace: namespace))
+                .ignoresSafeArea()
+        }
     }
 
     private func field(
@@ -228,6 +234,18 @@ struct SearchScreen: View {
                 .overlay(Capsule().stroke(RoameTheme.hairline, lineWidth: 1))
                 .clipShape(Capsule())
                 .accessibilityLabel(a11y)
+        }
+    }
+}
+
+private struct SearchCardMatch: ViewModifier {
+    var namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        if let namespace {
+            content.matchedGeometryEffect(id: "searchCard", in: namespace)
+        } else {
+            content
         }
     }
 }

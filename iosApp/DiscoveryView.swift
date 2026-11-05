@@ -3,6 +3,7 @@ import Shared
 
 struct DiscoveryView: View {
     @ObservedObject var model: FlightExplorerModel
+    @Namespace private var searchNS
     @State private var isSearching = false
     @State private var pane: Pane = .list
     /// Matches `FlightExplorer.LIST_PAGE_SIZE` — keep in sync.
@@ -15,21 +16,37 @@ struct DiscoveryView: View {
 
     private let pageSize = 24
 
+    private var searchSpring: Animation {
+        .spring(duration: 0.38, bounce: 0.12)
+    }
+
     var body: some View {
-        discoverContent
-            .padding(.horizontal, 16)
-            .background(RoameTheme.canvas.ignoresSafeArea())
-            .fullScreenCover(isPresented: $isSearching) {
-                SearchScreen(model: model, onClose: { isSearching = false })
+        ZStack {
+            discoverContent
+                .padding(.horizontal, isSearching ? 0 : 16)
+                .opacity(isSearching ? 0 : 1)
+
+            if isSearching {
+                SearchScreen(
+                    model: model,
+                    namespace: searchNS,
+                    onClose: closeSearch
+                )
+                .transition(.opacity)
+                .zIndex(1)
             }
-            .alert("Save error", isPresented: Binding(
-                get: { model.saveError != nil },
-                set: { if !$0 { model.clearSaveError() } }
-            )) {
-                Button("OK", role: .cancel) { model.clearSaveError() }
-            } message: {
-                Text(model.saveError ?? "")
-            }
+        }
+        .background(RoameTheme.canvas.ignoresSafeArea())
+        .toolbar(isSearching ? .hidden : .automatic, for: .tabBar)
+        .animation(searchSpring, value: isSearching)
+        .alert("Save error", isPresented: Binding(
+            get: { model.saveError != nil },
+            set: { if !$0 { model.clearSaveError() } }
+        )) {
+            Button("OK", role: .cancel) { model.clearSaveError() }
+        } message: {
+            Text(model.saveError ?? "")
+        }
     }
 
     private var discoverContent: some View {
@@ -44,11 +61,17 @@ struct DiscoveryView: View {
                 Spacer(minLength: 0)
             }
 
-            SearchPill(
-                summary: SearchSummary.text(model: model),
-                detail: SearchSummary.detail(model: model),
-                onTap: { isSearching = true }
-            )
+            if !isSearching {
+                SearchPill(
+                    summary: SearchSummary.text(model: model),
+                    detail: SearchSummary.detail(model: model),
+                    namespace: searchNS,
+                    onTap: openSearch
+                )
+            } else {
+                // Hold layout space so matchedGeometry has a stable source frame.
+                Color.clear.frame(height: 64)
+            }
 
             ActiveFilterChipsView(model: model)
 
@@ -82,7 +105,7 @@ struct DiscoveryView: View {
                         )
                 }
 
-                if let flight = model.selectedFlight {
+                if let flight = model.selectedFlight, !isSearching {
                     SelectionCardView(
                         flight: flight,
                         saved: model.isSaved(flight.id),
@@ -118,6 +141,14 @@ struct DiscoveryView: View {
         .background(RoameTheme.surface)
         .overlay(Capsule().stroke(RoameTheme.hairline, lineWidth: 1))
         .clipShape(Capsule())
+    }
+
+    private func openSearch() {
+        withAnimation(searchSpring) { isSearching = true }
+    }
+
+    private func closeSearch() {
+        withAnimation(searchSpring) { isSearching = false }
     }
 }
 

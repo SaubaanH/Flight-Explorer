@@ -1,6 +1,11 @@
 package travel.roame.takehome.android.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -43,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import travel.roame.takehome.FlightExplorer
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun FlightExplorerApp(explorer: FlightExplorer) {
     var tab by remember { mutableIntStateOf(0) }
@@ -82,77 +89,97 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
         explorer.clearSaveError()
     }
 
-    Scaffold(
-        containerColor = RoameColors.Canvas,
-        snackbarHost = { SnackbarHost(snackbar) },
-        bottomBar = {
-            if (!isSearching) {
-                RoameBottomBar(
-                    tab = tab,
-                    onTab = { tab = it },
-                )
-            }
-        },
-    ) { padding ->
-        if (isSearching) {
-            SearchScreen(
-                filters = filters,
-                originText = originText,
-                destText = destText,
-                pointsSlider = pointsSlider,
-                onOriginChange = {
-                    originText = it
-                    explorer.setOriginQuery(it)
-                },
-                onDestChange = {
-                    destText = it
-                    explorer.setDestinationQuery(it)
-                },
-                onDateFrom = { explorer.setDateRange(it, filters.dateTo) },
-                onDateTo = { explorer.setDateRange(filters.dateFrom, it) },
-                onCabin = explorer::setCabin,
-                onPointsSlider = { pointsSlider = it },
-                onPointsFinished = { explorer.setMaxPoints(pointsSlider.toInt()) },
-                onTogglePointsFilter = {
-                    if (filters.maxPoints == null) {
-                        explorer.setMaxPoints(pointsSlider.toInt())
-                    } else {
-                        explorer.setMaxPoints(null)
+    SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize()) {
+            Scaffold(
+                containerColor = RoameColors.Canvas,
+                snackbarHost = { SnackbarHost(snackbar) },
+                bottomBar = {
+                    AnimatedVisibility(
+                        visible = !isSearching,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                    ) {
+                        RoameBottomBar(
+                            tab = tab,
+                            onTab = { tab = it },
+                        )
                     }
                 },
-                onToggleProgram = explorer::toggleProgram,
-                onReset = ::resetAll,
-                onClose = { isSearching = false },
-                modifier = Modifier.padding(padding),
-            )
-        } else {
-            when (tab) {
-                0 -> DiscoveryScreen(
+            ) { padding ->
+                when (tab) {
+                    0 -> DiscoveryScreen(
+                        filters = filters,
+                        filteredFlights = filtered,
+                        clusters = clusters,
+                        selectedFlight = selected,
+                        savedIds = savedIds,
+                        status = status,
+                        browsingCluster = browsing,
+                        explorer = explorer,
+                        isSearching = isSearching,
+                        onOpenSearch = { isSearching = true },
+                        onClearOrigin = {
+                            originText = ""
+                            explorer.setOriginQuery("")
+                        },
+                        onClearDestination = {
+                            destText = ""
+                            explorer.setDestinationQuery("")
+                        },
+                        onResetFilters = ::resetAll,
+                        modifier = Modifier.padding(padding),
+                    )
+                    else -> SavedScreen(
+                        savedFlights = saved,
+                        selectedFlight = selected,
+                        explorer = explorer,
+                        modifier = Modifier.padding(padding),
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = isSearching,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                SearchScreen(
                     filters = filters,
-                    filteredFlights = filtered,
-                    clusters = clusters,
-                    selectedFlight = selected,
-                    savedIds = savedIds,
-                    status = status,
-                    browsingCluster = browsing,
-                    explorer = explorer,
-                    onOpenSearch = { isSearching = true },
-                    onClearOrigin = {
-                        originText = ""
-                        explorer.setOriginQuery("")
+                    originText = originText,
+                    destText = destText,
+                    pointsSlider = pointsSlider,
+                    onOriginChange = {
+                        originText = it
+                        explorer.setOriginQuery(it)
                     },
-                    onClearDestination = {
-                        destText = ""
-                        explorer.setDestinationQuery("")
+                    onDestChange = {
+                        destText = it
+                        explorer.setDestinationQuery(it)
                     },
-                    onResetFilters = ::resetAll,
-                    modifier = Modifier.padding(padding),
-                )
-                else -> SavedScreen(
-                    savedFlights = saved,
-                    selectedFlight = selected,
-                    explorer = explorer,
-                    modifier = Modifier.padding(padding),
+                    onDateFrom = { explorer.setDateRange(it, filters.dateTo) },
+                    onDateTo = { explorer.setDateRange(filters.dateFrom, it) },
+                    onCabin = explorer::setCabin,
+                    onPointsSlider = { pointsSlider = it },
+                    onPointsFinished = { explorer.setMaxPoints(pointsSlider.toInt()) },
+                    onTogglePointsFilter = {
+                        if (filters.maxPoints == null) {
+                            explorer.setMaxPoints(pointsSlider.toInt())
+                        } else {
+                            explorer.setMaxPoints(null)
+                        }
+                    },
+                    onToggleProgram = explorer::toggleProgram,
+                    onReset = ::resetAll,
+                    onClose = { isSearching = false },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .sharedBounds(
+                            sharedContentState = rememberSharedContentState(key = "searchCard"),
+                            animatedVisibilityScope = this,
+                            boundsTransform = { _, _ -> SearchSharedSpring },
+                        ),
                 )
             }
         }

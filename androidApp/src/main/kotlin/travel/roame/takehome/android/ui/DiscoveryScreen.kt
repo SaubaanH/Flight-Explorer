@@ -1,5 +1,11 @@
 package travel.roame.takehome.android.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -7,8 +13,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,6 +37,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -42,8 +51,11 @@ import kotlin.math.min
 
 private enum class DiscoverPane { List, Map }
 
+internal val SearchSharedSpring = spring<Rect>(dampingRatio = 0.85f, stiffness = 400f)
+
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun DiscoveryScreen(
+fun SharedTransitionScope.DiscoveryScreen(
     filters: FlightFilters,
     filteredFlights: List<Flight>,
     clusters: List<DestinationCluster>,
@@ -52,6 +64,7 @@ fun DiscoveryScreen(
     status: LoadStatus,
     browsingCluster: DestinationCluster?,
     explorer: FlightExplorer,
+    isSearching: Boolean,
     onOpenSearch: () -> Unit,
     onClearOrigin: () -> Unit,
     onClearDestination: () -> Unit,
@@ -74,11 +87,25 @@ fun DiscoveryScreen(
                 subtitle = "Find award flights with points",
             )
 
-            SearchPill(
-                summary = searchSummary(filters),
-                detail = searchDetail(filters),
-                onClick = onOpenSearch,
-            )
+            AnimatedVisibility(
+                visible = !isSearching,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                SearchPill(
+                    summary = searchSummary(filters),
+                    detail = searchDetail(filters),
+                    onClick = onOpenSearch,
+                    modifier = Modifier.sharedBounds(
+                        sharedContentState = rememberSharedContentState(key = "searchCard"),
+                        animatedVisibilityScope = this,
+                        boundsTransform = { _, _ -> SearchSharedSpring },
+                    ),
+                )
+            }
+            if (isSearching) {
+                Spacer(Modifier.height(64.dp))
+            }
 
             ActiveFilterChips(
                 filters = filters,
