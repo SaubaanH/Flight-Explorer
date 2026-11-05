@@ -29,11 +29,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,7 +46,6 @@ import travel.roame.takehome.model.DestinationCluster
 import travel.roame.takehome.model.Flight
 import travel.roame.takehome.model.FlightFilters
 import travel.roame.takehome.model.LoadStatus
-import kotlin.math.min
 
 private enum class DiscoverPane { List, Map }
 
@@ -145,26 +143,44 @@ fun SharedTransitionScope.DiscoveryScreen(
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 when (pane) {
                     DiscoverPane.List -> {
-                        if (filteredFlights.isEmpty() &&
-                            status !is LoadStatus.Error &&
-                            status != LoadStatus.Loading
-                        ) {
-                            val emptyCopy = when (status) {
-                                LoadStatus.Empty -> "No flights returned from the server."
-                                else -> "No flights match these filters."
+                        when {
+                            filteredFlights.isEmpty() && status == LoadStatus.Loading -> {
+                                Text(
+                                    "Loading flights…",
+                                    modifier = Modifier.align(Alignment.Center),
+                                    color = RoameColors.Muted,
+                                )
                             }
-                            Text(
-                                emptyCopy,
-                                modifier = Modifier.align(Alignment.Center),
-                                color = RoameColors.Muted,
-                            )
-                        } else {
-                            WindowedFlightList(
-                                flights = filteredFlights,
-                                selectedFlight = selectedFlight,
-                                savedIds = savedIds,
-                                onSelect = ::openDetail,
-                            )
+                            filteredFlights.isEmpty() && status !is LoadStatus.Error -> {
+                                val emptyCopy = when (status) {
+                                    LoadStatus.Empty -> "No flights returned from the server."
+                                    else -> "No flights match these filters."
+                                }
+                                Text(
+                                    emptyCopy,
+                                    modifier = Modifier.align(Alignment.Center),
+                                    color = RoameColors.Muted,
+                                )
+                            }
+                            filteredFlights.isEmpty() -> {
+                                // Error with no rows — banner above already explains + Retry.
+                            }
+                            else -> {
+                                // Fresh list state when the result set identity changes — prevents the
+                                // empty→data transition from leaving LazyColumn scrolled into card #1.
+                                key(
+                                    filteredFlights.size,
+                                    filteredFlights.firstOrNull()?.id,
+                                    filteredFlights.lastOrNull()?.id,
+                                ) {
+                                    FlightResultList(
+                                        flights = filteredFlights,
+                                        selectedFlight = selectedFlight,
+                                        savedIds = savedIds,
+                                        onSelect = ::openDetail,
+                                    )
+                                }
+                            }
                         }
                     }
                     DiscoverPane.Map -> {
@@ -244,38 +260,21 @@ fun SharedTransitionScope.DiscoveryScreen(
 }
 
 @Composable
-private fun WindowedFlightList(
+private fun FlightResultList(
     flights: List<Flight>,
     selectedFlight: Flight?,
     savedIds: Set<String>,
     onSelect: (Flight) -> Unit,
 ) {
-    var visibleCount by remember { mutableIntStateOf(FlightExplorer.LIST_PAGE_SIZE) }
-    val listState = rememberLazyListState()
-    LaunchedEffect(flights) {
-        visibleCount = min(FlightExplorer.LIST_PAGE_SIZE, flights.size)
-        listState.scrollToItem(0)
-    }
-    val shown = remember(flights, visibleCount) { flights.take(visibleCount) }
-
-    LaunchedEffect(listState, shown.size, flights.size, visibleCount) {
-        snapshotFlow {
-            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: return@snapshotFlow false
-            visibleCount < flights.size && lastVisible >= shown.lastIndex - 2
-        }.collect { nearEnd ->
-            if (nearEnd) {
-                visibleCount = min(visibleCount + FlightExplorer.LIST_PAGE_SIZE, flights.size)
-            }
-        }
-    }
-
+    // LazyColumn virtualizes rows; windowing + scrollToItem races caused startup to land
+    // mid-first-card after the empty→loaded transition.
     LazyColumn(
-        state = listState,
+        state = rememberLazyListState(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(bottom = 160.dp),
+        contentPadding = PaddingValues(bottom = 100.dp),
     ) {
         items(
-            items = shown,
+            items = flights,
             key = { it.id },
             contentType = { "flight" },
         ) { flight ->
@@ -285,18 +284,6 @@ private fun WindowedFlightList(
                 saved = flight.id in savedIds,
                 onClick = { onSelect(flight) },
             )
-        }
-        if (visibleCount < flights.size) {
-            item(key = "load-more") {
-                Text(
-                    "Showing $visibleCount of ${flights.size}…",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    color = RoameColors.Muted,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
         }
     }
 }
