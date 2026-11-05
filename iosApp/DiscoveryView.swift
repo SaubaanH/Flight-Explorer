@@ -3,6 +3,8 @@ import Shared
 
 struct DiscoveryView: View {
     @ObservedObject var model: FlightExplorerModel
+    @Namespace private var searchNS
+    @State private var isSearching = false
     @State private var pane: Pane = .list
 
     private enum Pane: String, CaseIterable {
@@ -10,124 +12,67 @@ struct DiscoveryView: View {
         case map = "Map"
     }
 
+    private var spring: Animation {
+        .spring(duration: 0.35, bounce: 0.15)
+    }
+
     var body: some View {
+        ZStack {
+            discoverContent
+                .overlay {
+                    Color.black
+                        .opacity(isSearching ? 0.15 : 0)
+                        .ignoresSafeArea()
+                        .allowsHitTesting(isSearching)
+                        .onTapGesture { closeSearch() }
+                        .animation(spring, value: isSearching)
+                }
+
+            if isSearching {
+                SearchPanel(model: model, namespace: searchNS, onClose: closeSearch)
+                    .padding(.horizontal, 8)
+                    .padding(.top, 8)
+                    .padding(.bottom, 8)
+                    .transition(.opacity)
+                    .zIndex(2)
+            }
+        }
+        .padding(.horizontal, isSearching ? 0 : 16)
+        .background(RoameTheme.canvas.ignoresSafeArea())
+        .alert("Save error", isPresented: Binding(
+            get: { model.saveError != nil },
+            set: { if !$0 { model.clearSaveError() } }
+        )) {
+            Button("OK", role: .cancel) { model.clearSaveError() }
+        } message: {
+            Text(model.saveError ?? "")
+        }
+    }
+
+    private var discoverContent: some View {
         VStack(spacing: 12) {
             StatusBannerView(model: model)
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    RoameBrandHeader(
-                        title: "Discover",
-                        subtitle: "Find award flights with points"
-                    )
-
-                    TextField("Origin (code or city)", text: Binding(
-                        get: { model.originText },
-                        set: { model.onOriginChanged($0) }
-                    ))
-                    .padding(14)
-                    .background(RoameTheme.surface)
-                    .overlay(Capsule().stroke(RoameTheme.hairline, lineWidth: 1))
-                    .clipShape(Capsule())
-                    .accessibilityLabel("Origin search field")
-
-                    TextField("Destination (code or city)", text: Binding(
-                        get: { model.destinationText },
-                        set: { model.onDestinationChanged($0) }
-                    ))
-                    .padding(14)
-                    .background(RoameTheme.surface)
-                    .overlay(Capsule().stroke(RoameTheme.hairline, lineWidth: 1))
-                    .clipShape(Capsule())
-                    .accessibilityLabel("Destination search field")
-
-                    HStack(spacing: 8) {
-                        TextField("From date", text: Binding(
-                            get: { model.dateFrom },
-                            set: { model.onDateFrom($0) }
-                        ))
-                        .padding(14)
-                        .background(RoameTheme.surface)
-                        .overlay(Capsule().stroke(RoameTheme.hairline, lineWidth: 1))
-                        .clipShape(Capsule())
-                        .accessibilityLabel("Departure date from")
-
-                        TextField("To date", text: Binding(
-                            get: { model.dateTo },
-                            set: { model.onDateTo($0) }
-                        ))
-                        .padding(14)
-                        .background(RoameTheme.surface)
-                        .overlay(Capsule().stroke(RoameTheme.hairline, lineWidth: 1))
-                        .clipShape(Capsule())
-                        .accessibilityLabel("Departure date to")
-                    }
-
-                    Text("Cabin")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(RoameTheme.ink)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            RoameChip(label: "Any", selected: model.cabin == nil) {
-                                model.onCabin(nil)
-                            }
-                            .accessibilityLabel("Cabin filter Any")
-                            ForEach(["Economy", "Premium Economy", "Business"], id: \.self) { cabin in
-                                RoameChip(label: cabin, selected: model.cabin == cabin) {
-                                    model.onCabin(cabin)
-                                }
-                                .accessibilityLabel("Cabin filter \(cabin)")
-                            }
-                        }
-                    }
-
-                    Toggle(isOn: Binding(
-                        get: { model.maxPointsEnabled },
-                        set: { model.onMaxPointsChanged(model.maxPoints, enabled: $0) }
-                    )) {
-                        Text("Limit max points")
-                            .foregroundStyle(RoameTheme.ink)
-                    }
-                    .tint(RoameTheme.pink)
-                    .accessibilityLabel("Maximum points filter")
-
-                    if model.maxPointsEnabled {
-                        Text("Max points: \(Int(model.maxPoints).formatted())")
-                            .foregroundStyle(RoameTheme.muted)
-                        Slider(
-                            value: Binding(
-                                get: { model.maxPoints },
-                                set: { model.onMaxPointsChanged($0, enabled: true) }
-                            ),
-                            in: 9_000...133_000,
-                            step: 1_000
-                        )
-                        .tint(RoameTheme.pink)
-                        .accessibilityLabel("Maximum points slider")
-                    }
-
-                    Text("Loyalty programs")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(RoameTheme.ink)
-                    FlowLayout {
-                        ForEach(LoyaltyPrograms.shared.all, id: \.self) { program in
-                            let selected = model.selectedPrograms.contains(program)
-                            RoameChip(label: program, selected: selected) {
-                                model.toggleProgram(program)
-                            }
-                            .accessibilityLabel("Loyalty program \(program)")
-                        }
-                    }
-                }
-                .padding(16)
-                .background(RoameTheme.surface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .stroke(RoameTheme.hairline, lineWidth: 1)
+            HStack {
+                RoameBrandHeader(
+                    title: "Discover",
+                    subtitle: "Find award flights with points"
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                Spacer(minLength: 0)
             }
-            .frame(maxHeight: 300)
+
+            if !isSearching {
+                SearchPill(
+                    summary: SearchSummary.text(model: model),
+                    detail: SearchSummary.detail(model: model),
+                    namespace: searchNS,
+                    onTap: openSearch
+                )
+                .transition(.opacity)
+            } else {
+                // Keep layout height stable while the panel morphs over the content.
+                Color.clear.frame(height: 64)
+            }
 
             ActiveFilterChipsView(model: model)
 
@@ -163,7 +108,7 @@ struct DiscoveryView: View {
                         )
                 }
 
-                if let flight = model.selectedFlight {
+                if let flight = model.selectedFlight, !isSearching {
                     SelectionCardView(
                         flight: flight,
                         saved: model.isSaved(flight.id),
@@ -175,16 +120,6 @@ struct DiscoveryView: View {
                     .padding(.bottom, 8)
                 }
             }
-        }
-        .padding(.horizontal)
-        .background(RoameTheme.canvas.ignoresSafeArea())
-        .alert("Save error", isPresented: Binding(
-            get: { model.saveError != nil },
-            set: { if !$0 { model.clearSaveError() } }
-        )) {
-            Button("OK", role: .cancel) { model.clearSaveError() }
-        } message: {
-            Text(model.saveError ?? "")
         }
     }
 
@@ -209,6 +144,14 @@ struct DiscoveryView: View {
         .background(RoameTheme.surface)
         .overlay(Capsule().stroke(RoameTheme.hairline, lineWidth: 1))
         .clipShape(Capsule())
+    }
+
+    private func openSearch() {
+        withAnimation(spring) { isSearching = true }
+    }
+
+    private func closeSearch() {
+        withAnimation(spring) { isSearching = false }
     }
 }
 

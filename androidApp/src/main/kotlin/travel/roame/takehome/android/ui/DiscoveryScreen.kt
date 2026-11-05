@@ -1,30 +1,30 @@
 package travel.roame.takehome.android.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,24 +36,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import travel.roame.takehome.FlightExplorer
-import travel.roame.takehome.model.Cabin
 import travel.roame.takehome.model.DestinationCluster
 import travel.roame.takehome.model.Flight
 import travel.roame.takehome.model.FlightFilters
 import travel.roame.takehome.model.LoadStatus
-import travel.roame.takehome.model.LoyaltyPrograms
 
 private enum class DiscoverPane { List, Map }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+private val SearchSpring = spring<Rect>(dampingRatio = 0.85f, stiffness = 400f)
+
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun DiscoveryScreen(
     filters: FlightFilters,
@@ -67,242 +65,200 @@ fun DiscoveryScreen(
     modifier: Modifier = Modifier,
 ) {
     var pane by remember { mutableStateOf(DiscoverPane.List) }
+    var isSearching by remember { mutableStateOf(false) }
     var originText by remember { mutableStateOf(filters.originQuery) }
     var destText by remember { mutableStateOf(filters.destinationQuery) }
     var pointsSlider by remember {
         mutableFloatStateOf((filters.maxPoints ?: 133000).toFloat())
     }
 
-    val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = RoameColors.Pink,
-        unfocusedBorderColor = RoameColors.Hairline,
-        focusedLabelColor = RoameColors.Pink,
-        cursorColor = RoameColors.Pink,
-        focusedContainerColor = RoameColors.Surface,
-        unfocusedContainerColor = RoameColors.Surface,
-    )
+    fun openSearch() { isSearching = true }
+    fun closeSearch() { isSearching = false }
+    fun resetAll() {
+        originText = ""
+        destText = ""
+        pointsSlider = 133000f
+        explorer.resetFilters()
+    }
 
-    Column(
-        modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        StatusBanner(status = status, onRetry = { explorer.refresh() })
-
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(max = 280.dp)
-                .clip(RoameShapes.Panel)
-                .background(RoameColors.Surface)
-                .border(1.dp, RoameColors.Hairline, RoameShapes.Panel)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            RoameBrandHeader(
-                title = "Discover",
-                subtitle = "Find award flights with points",
-            )
-            OutlinedTextField(
-                value = originText,
-                onValueChange = {
-                    originText = it
-                    explorer.setOriginQuery(it)
-                },
-                label = { Text("Origin") },
-                placeholder = { Text("Code or city") },
-                singleLine = true,
-                shape = RoameShapes.Pill,
-                colors = fieldColors,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = "Origin search field" },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-            )
-            OutlinedTextField(
-                value = destText,
-                onValueChange = {
-                    destText = it
-                    explorer.setDestinationQuery(it)
-                },
-                label = { Text("Destination") },
-                placeholder = { Text("Code or city") },
-                singleLine = true,
-                shape = RoameShapes.Pill,
-                colors = fieldColors,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = "Destination search field" },
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = filters.dateFrom,
-                    onValueChange = { explorer.setDateRange(it, filters.dateTo) },
-                    label = { Text("From date") },
-                    singleLine = true,
-                    shape = RoameShapes.Pill,
-                    colors = fieldColors,
-                    modifier = Modifier
-                        .weight(1f)
-                        .semantics { contentDescription = "Departure date from" },
-                )
-                OutlinedTextField(
-                    value = filters.dateTo,
-                    onValueChange = { explorer.setDateRange(filters.dateFrom, it) },
-                    label = { Text("To date") },
-                    singleLine = true,
-                    shape = RoameShapes.Pill,
-                    colors = fieldColors,
-                    modifier = Modifier
-                        .weight(1f)
-                        .semantics { contentDescription = "Departure date to" },
-                )
-            }
-            Text("Cabin", style = MaterialTheme.typography.labelLarge)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+    SharedTransitionLayout(modifier = modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize()) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                RoameFilterChip(
-                    selected = filters.cabin == null,
-                    label = "Any",
-                    onClick = { explorer.setCabin(null) },
-                    contentDescription = "Cabin filter any",
+                StatusBanner(status = status, onRetry = { explorer.refresh() })
+
+                RoameBrandHeader(
+                    title = "Discover",
+                    subtitle = "Find award flights with points",
                 )
-                Cabin.allLabels.forEach { cabin ->
-                    RoameFilterChip(
-                        selected = filters.cabin == cabin,
-                        label = cabin,
-                        onClick = { explorer.setCabin(cabin) },
-                        contentDescription = "Cabin filter $cabin",
+
+                AnimatedVisibility(
+                    visible = !isSearching,
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                ) {
+                    SearchPill(
+                        summary = searchSummary(filters),
+                        detail = searchDetail(filters),
+                        onClick = { openSearch() },
+                        modifier = Modifier.sharedBounds(
+                            sharedContentState = rememberSharedContentState(key = "searchCard"),
+                            animatedVisibilityScope = this,
+                            boundsTransform = { _, _ -> SearchSpring },
+                        ),
                     )
                 }
-            }
-            Text(
-                "Max points: ${"%,d".format(pointsSlider.toInt())}",
-                modifier = Modifier.semantics { contentDescription = "Maximum points filter" },
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Slider(
-                value = pointsSlider,
-                onValueChange = { pointsSlider = it },
-                valueRange = 9000f..133000f,
-                onValueChangeFinished = { explorer.setMaxPoints(pointsSlider.toInt()) },
-                colors = SliderDefaults.colors(
-                    thumbColor = RoameColors.Pink,
-                    activeTrackColor = RoameColors.Pink,
-                    inactiveTrackColor = RoameColors.PinkSoft,
-                ),
-                modifier = Modifier.semantics { contentDescription = "Maximum points slider" },
-            )
-            RoameFilterChip(
-                selected = filters.maxPoints != null,
-                label = if (filters.maxPoints == null) "Points filter off" else "Points filter on",
-                onClick = {
-                    if (filters.maxPoints == null) {
-                        explorer.setMaxPoints(pointsSlider.toInt())
-                    } else {
-                        explorer.setMaxPoints(null)
-                    }
-                },
-                contentDescription = "Points filter toggle",
-            )
-            Text("Loyalty programs", style = MaterialTheme.typography.labelLarge)
-            ProgramChips(
-                selected = filters.programs,
-                programs = LoyaltyPrograms.all,
-                onToggle = explorer::toggleProgram,
-            )
-        }
+                if (isSearching) {
+                    Spacer(Modifier.height(64.dp))
+                }
 
-        ActiveFilterChips(
-            filters = filters,
-            resultCount = filteredFlights.size,
-            onReset = {
-                originText = ""
-                destText = ""
-                pointsSlider = 133000f
-                explorer.resetFilters()
-            },
-            onClearOrigin = {
-                originText = ""
-                explorer.setOriginQuery("")
-            },
-            onClearDestination = {
-                destText = ""
-                explorer.setDestinationQuery("")
-            },
-            onClearCabin = { explorer.setCabin(null) },
-            onClearMaxPoints = { explorer.setMaxPoints(null) },
-            onClearDate = {
-                explorer.setDateRange(FlightFilters.DEFAULT_DATE_FROM, FlightFilters.DEFAULT_DATE_TO)
-            },
-            onRemoveProgram = explorer::toggleProgram,
-        )
-
-        PaneToggle(pane = pane, onPane = { pane = it })
-
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            when (pane) {
-                DiscoverPane.List -> {
-                    if (filteredFlights.isEmpty() &&
-                        status !is LoadStatus.Error &&
-                        status != LoadStatus.Loading
-                    ) {
-                        Text(
-                            "No flights match these filters.",
-                            modifier = Modifier.align(Alignment.Center),
-                            color = RoameColors.Muted,
+                ActiveFilterChips(
+                    filters = filters,
+                    resultCount = filteredFlights.size,
+                    onReset = ::resetAll,
+                    onClearOrigin = {
+                        originText = ""
+                        explorer.setOriginQuery("")
+                    },
+                    onClearDestination = {
+                        destText = ""
+                        explorer.setDestinationQuery("")
+                    },
+                    onClearCabin = { explorer.setCabin(null) },
+                    onClearMaxPoints = { explorer.setMaxPoints(null) },
+                    onClearDate = {
+                        explorer.setDateRange(
+                            FlightFilters.DEFAULT_DATE_FROM,
+                            FlightFilters.DEFAULT_DATE_TO,
                         )
-                    } else {
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(12.dp),
-                            contentPadding = PaddingValues(bottom = 160.dp),
-                        ) {
-                            items(filteredFlights, key = { it.id }) { flight ->
-                                FlightRow(
+                    },
+                    onRemoveProgram = explorer::toggleProgram,
+                )
+
+                PaneToggle(pane = pane, onPane = { pane = it })
+
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    when (pane) {
+                        DiscoverPane.List -> {
+                            if (filteredFlights.isEmpty() &&
+                                status !is LoadStatus.Error &&
+                                status != LoadStatus.Loading
+                            ) {
+                                Text(
+                                    "No flights match these filters.",
+                                    modifier = Modifier.align(Alignment.Center),
+                                    color = RoameColors.Muted,
+                                )
+                            } else {
+                                LazyColumn(
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    contentPadding = PaddingValues(bottom = 160.dp),
+                                ) {
+                                    items(filteredFlights, key = { it.id }) { flight ->
+                                        FlightRow(
+                                            flight = flight,
+                                            selected = flight.id == selectedFlight?.id,
+                                            saved = flight.id in savedIds,
+                                            onClick = { explorer.selectFlight(flight.id) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        DiscoverPane.Map -> {
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .border(1.dp, RoameColors.Hairline, RoameShapes.Card),
+                            ) {
+                                FlightMap(
+                                    clusters = clusters,
+                                    selectedFlight = selectedFlight,
+                                    onClusterTap = explorer::openCluster,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
+                    }
+
+                    if (!isSearching) {
+                        selectedFlight?.let { flight ->
+                            Box(
+                                Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 8.dp)
+                                    .fillMaxWidth(),
+                            ) {
+                                SelectionCard(
                                     flight = flight,
-                                    selected = flight.id == selectedFlight?.id,
                                     saved = flight.id in savedIds,
-                                    onClick = { explorer.selectFlight(flight.id) },
+                                    onSave = { explorer.saveFlight(flight) },
+                                    onRemove = { explorer.removeSaved(flight.id) },
+                                    onDismiss = { explorer.selectFlight(null) },
                                 )
                             }
                         }
                     }
                 }
-                DiscoverPane.Map -> {
-                    // Don't clip the WebView parent — Compose clip() blanks MapLibre/WebView.
+            }
+
+            AnimatedVisibility(
+                visible = isSearching,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                val panelScope = this
+                Box(Modifier.fillMaxSize()) {
                     Box(
                         Modifier
                             .fillMaxSize()
-                            .border(1.dp, RoameColors.Hairline, RoameShapes.Card),
-                    ) {
-                        FlightMap(
-                            clusters = clusters,
-                            selectedFlight = selectedFlight,
-                            onClusterTap = explorer::openCluster,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                }
-            }
-
-            selectedFlight?.let { flight ->
-                Box(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 8.dp)
-                        .fillMaxWidth(),
-                ) {
-                    SelectionCard(
-                        flight = flight,
-                        saved = flight.id in savedIds,
-                        onSave = { explorer.saveFlight(flight) },
-                        onRemove = { explorer.removeSaved(flight.id) },
-                        onDismiss = { explorer.selectFlight(null) },
+                            .background(Color.Black.copy(alpha = 0.15f))
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                                onClick = { closeSearch() },
+                            ),
+                    )
+                    SearchPanel(
+                        filters = filters,
+                        originText = originText,
+                        destText = destText,
+                        pointsSlider = pointsSlider,
+                        onOriginChange = {
+                            originText = it
+                            explorer.setOriginQuery(it)
+                        },
+                        onDestChange = {
+                            destText = it
+                            explorer.setDestinationQuery(it)
+                        },
+                        onDateFrom = { explorer.setDateRange(it, filters.dateTo) },
+                        onDateTo = { explorer.setDateRange(filters.dateFrom, it) },
+                        onCabin = explorer::setCabin,
+                        onPointsSlider = { pointsSlider = it },
+                        onPointsFinished = { explorer.setMaxPoints(pointsSlider.toInt()) },
+                        onTogglePointsFilter = {
+                            if (filters.maxPoints == null) {
+                                explorer.setMaxPoints(pointsSlider.toInt())
+                            } else {
+                                explorer.setMaxPoints(null)
+                            }
+                        },
+                        onToggleProgram = explorer::toggleProgram,
+                        onReset = ::resetAll,
+                        onClose = { closeSearch() },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp)
+                            .sharedBounds(
+                                sharedContentState = rememberSharedContentState(key = "searchCard"),
+                                animatedVisibilityScope = panelScope,
+                                boundsTransform = { _, _ -> SearchSpring },
+                            ),
                     )
                 }
             }
@@ -364,7 +320,7 @@ private fun PaneToggle(pane: DiscoverPane, onPane: (DiscoverPane) -> Unit) {
     ) {
         DiscoverPane.entries.forEach { option ->
             val selected = pane == option
-            androidx.compose.material3.Surface(
+            Surface(
                 onClick = { onPane(option) },
                 shape = RoameShapes.Pill,
                 color = if (selected) RoameColors.PinkSoft else Color.Transparent,
