@@ -98,6 +98,9 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
 
     SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize()) {
+            // Warm MapLibre JS/style while browsing so detail sheets open faster.
+            MapLibrePrewarm()
+
             // Keep the bottom bar in the Scaffold layout always so Discover padding
             // (and the search pill bounds) stay stable during the shared morph.
             Scaffold(

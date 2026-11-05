@@ -22,6 +22,10 @@ struct RoameStarterApp: App {
             }
             .tint(RoameTheme.pink)
             .background(RoameTheme.canvas.ignoresSafeArea())
+            .task {
+                // Load MapLibre JS/style while the user browses — sheet open only fits the route.
+                SharedRouteMapLibre.shared.prewarm()
+            }
             // App-root so Discover and Saved both surface persistence failures.
             .alert("Save error", isPresented: Binding(
                 get: { model.saveError != nil },

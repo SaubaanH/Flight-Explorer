@@ -8,6 +8,11 @@
 <script src="maplibre/maplibre-gl.js"></script>
 <style>
   html, body, #map { margin:0; padding:0; height:100%; width:100%; background:#F0EEEA; }
+  /* Hide map chrome until the route camera is fitted — avoids world-flash then jump. */
+  #map .maplibregl-canvas-container,
+  #map .maplibregl-control-container { opacity: 0; transition: none; }
+  #map.is-ready .maplibregl-canvas-container,
+  #map.is-ready .maplibregl-control-container { opacity: 1; }
   #status {
     position:absolute; z-index:2; left:12px; right:12px; top:12px;
     font: 600 13px/1.3 -apple-system, BlinkMacSystemFont, sans-serif;
@@ -56,6 +61,8 @@
   ];
 
   let map;
+  // Expose for native hosts that re-parent the WebView and need map.resize().
+  window.map = null;
   let markerObjs = [];
   let endpointObjs = [];
   let routeSourceReady = false;
@@ -72,14 +79,23 @@
     }
   }
 
+  function setMapRevealed(revealed) {
+    const el = document.getElementById('map');
+    if (!el) return;
+    if (revealed) el.classList.add('is-ready');
+    else el.classList.remove('is-ready');
+  }
+
   function createMap(style) {
+    setMapRevealed(false);
     map = new maplibregl.Map({
       container: 'map',
       style: style,
       center: [0, 20],
       zoom: 1.2,
       attributionControl: false,
-      renderWorldCopies: true
+      renderWorldCopies: true,
+      fadeDuration: 0
     });
     map.on('error', (e) => {
       const msg = (e && e.error && e.error.message) ? e.error.message : 'Map tile error';
@@ -93,8 +109,10 @@
         createMap(STYLES[styleIndex]);
       } else {
         showStatus(msg);
+        setMapRevealed(true);
       }
     });
+    window.map = map;
     map.on('load', onMapReady);
   }
 
@@ -193,6 +211,14 @@
 
     clearEndpoints();
 
+    // Route-only sheet: keep canvas hidden until fitBounds finishes (no world-flash).
+    // Discover (markers): always revealed.
+    if (!hasMarkers && route) {
+      setMapRevealed(false);
+    } else {
+      setMapRevealed(true);
+    }
+
     if (map.isStyleLoaded()) {
       ensureRouteLayer();
       if (route) {
@@ -220,7 +246,6 @@
           const east = Math.max(route.oLng, short.lng);
           const south = Math.min(route.oLat, short.lat);
           const north = Math.max(route.oLat, short.lat);
-          // Slightly expand so endpoints aren't glued to the crop after aspect fit.
           const padLng = Math.max((east - west) * 0.12, 4);
           const padLat = Math.max((north - south) * 0.12, 3);
           const routeBounds = new maplibregl.LngLatBounds(
@@ -232,7 +257,10 @@
             maxZoom: 4,
             duration: 0
           });
-          map.once('idle', notifyMapReady);
+          map.once('idle', () => {
+            setMapRevealed(true);
+            notifyMapReady();
+          });
         } else {
           bounds.extend([route.oLng, route.oLat]);
           bounds.extend([route.dLng, route.dLat]);

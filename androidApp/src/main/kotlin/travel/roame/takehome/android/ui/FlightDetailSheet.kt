@@ -25,12 +25,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,7 +41,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
-import kotlinx.coroutines.delay
 import travel.roame.takehome.model.Flight
 
 /**
@@ -168,17 +163,11 @@ fun FlightDetailSheet(
 }
 
 /**
- * Sketch paints immediately; MapLibre (real map) crossfades in after the sheet opens.
+ * Real MapLibre map only — canvas stays hidden (beige) until fitBounds finishes,
+ * so there's no sketch→map crossfade or world-map flash.
  */
 @Composable
 private fun DetailRouteMap(flight: Flight) {
-    var showMap by remember(flight.id) { mutableStateOf(false) }
-    LaunchedEffect(flight.id) {
-        showMap = false
-        delay(1)
-        showMap = true
-    }
-
     Box(
         Modifier
             .fillMaxWidth()
@@ -186,18 +175,12 @@ private fun DetailRouteMap(flight: Flight) {
             .clip(RoameShapes.Card)
             .background(Color(0xFFF0EEEA)),
     ) {
-        RoutePreview(
-            flight = flight,
+        FlightMap(
+            clusters = emptyList(),
+            selectedFlight = flight,
+            onClusterTap = {},
             modifier = Modifier.fillMaxSize(),
         )
-        if (showMap) {
-            FlightMap(
-                clusters = emptyList(),
-                selectedFlight = flight,
-                onClusterTap = {},
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
     }
 }
 
