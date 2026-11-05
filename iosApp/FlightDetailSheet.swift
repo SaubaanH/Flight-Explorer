@@ -1,4 +1,3 @@
-import MapKit
 import SwiftUI
 import Shared
 
@@ -81,6 +80,5 @@ private struct RoutePreviewMap: View {
 
     var body: some View {
         RoutePreviewMapView(flight: flight)
-            .accessibilityLabel("Route map from \(flight.origin) to \(flight.destination)")
     }
 }
