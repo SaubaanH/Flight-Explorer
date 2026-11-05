@@ -8,9 +8,6 @@ struct DiscoveryView: View {
     @State private var pane: Pane = .list
     /// Matches `FlightExplorer.LIST_PAGE_SIZE` — keep in sync.
     @State private var listLimit = 24
-    /// Local sheet item so dismissing detail keeps map selection/route.
-    @State private var sheetItem: SelectedFlightItem? = nil
-
     private enum Pane: String, CaseIterable {
         case list = "List"
         case map = "Map"
@@ -39,7 +36,7 @@ struct DiscoveryView: View {
             }
         }
         .background(RoameTheme.canvas.ignoresSafeArea())
-        .toolbar(isSearching ? .hidden : .automatic, for: .tabBar)
+        .toolbar(isSearching || model.selectedFlight != nil ? .hidden : .automatic, for: .tabBar)
         .animation(searchSpring, value: isSearching)
     }
 
@@ -104,31 +101,17 @@ struct DiscoveryView: View {
 
             }
         }
-        .flightDetailOverlay(
-            item: $sheetItem,
-            saved: { model.isSaved($0.id) },
-            onSave: { model.save($0) },
-            onRemove: { flight in
-                model.removeSaved(flight.id)
-                model.select(nil)
-            },
-            onDismiss: { model.select(nil) }
-        )
-        .onChange(of: model.selectedFlight?.id) { _, newId in
-            if newId == nil { sheetItem = nil }
-        }
         .onChange(of: isSearching) { _, searching in
-            if searching { sheetItem = nil }
+            if searching { model.select(nil) }
         }
     }
 
     private func openDetail(_ id: String) {
-        model.select(id)
         guard let flight = model.flight(for: id) else { return }
-        // Fit the route now — before the slower sheet animation starts.
+        // Fit the route now — before the sheet animation starts.
         SharedRouteMapLibre.shared.prepare(flight)
         withAnimation(FlightDetailPresentation.openAnimation) {
-            sheetItem = SelectedFlightItem(flight: flight)
+            model.select(id)
         }
     }
 

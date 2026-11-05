@@ -57,8 +57,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import travel.roame.takehome.model.Flight
 
-private val SheetOpenMillis = 560
-private val SheetCloseMillis = 380
+private val SheetOpenMillis = 420
+private val SheetCloseMillis = 300
 
 /**
  * Bottom sheet for a selected flight: details + route map + Save/Remove.

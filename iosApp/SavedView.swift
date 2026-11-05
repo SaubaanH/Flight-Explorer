@@ -3,7 +3,6 @@ import Shared
 
 struct SavedView: View {
     @ObservedObject var model: FlightExplorerModel
-    @State private var sheetItem: SelectedFlightItem? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -37,27 +36,14 @@ struct SavedView: View {
         }
         .padding(.horizontal)
         .background(RoameTheme.canvas.ignoresSafeArea())
-        .flightDetailOverlay(
-            item: $sheetItem,
-            saved: { _ in true },
-            onSave: { model.save($0) },
-            onRemove: { flight in
-                model.removeSaved(flight.id)
-                model.select(nil)
-            },
-            onDismiss: { model.select(nil) }
-        )
-        .onChange(of: model.selectedFlight?.id) { _, newId in
-            if newId == nil { sheetItem = nil }
-        }
+        .toolbar(model.selectedFlight != nil ? .hidden : .automatic, for: .tabBar)
     }
 
     private func openDetail(_ id: String) {
-        model.select(id)
         guard let flight = model.flight(for: id) else { return }
         SharedRouteMapLibre.shared.prepare(flight)
         withAnimation(FlightDetailPresentation.openAnimation) {
-            sheetItem = SelectedFlightItem(flight: flight)
+            model.select(id)
         }
     }
 }
