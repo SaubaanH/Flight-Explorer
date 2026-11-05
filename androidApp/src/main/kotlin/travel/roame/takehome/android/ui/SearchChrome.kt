@@ -33,6 +33,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -142,10 +143,16 @@ fun SearchScreen(
         unfocusedContainerColor = RoameColors.Surface,
     )
 
+    // Surface (not bare background) so sharedBounds morphs a real card like the pill.
+    // RectangleShape when settled; OverlayClip(Panel) rounds corners during the morph.
+    Surface(
+        modifier = modifier.fillMaxSize(),
+        color = RoameColors.Canvas,
+        shape = RectangleShape,
+    ) {
     Column(
-        modifier
+        Modifier
             .fillMaxSize()
-            .background(RoameColors.Canvas)
             .statusBarsPadding(),
     ) {
         Row(
@@ -305,5 +312,6 @@ fun SearchScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .semantics { contentDescription = "Apply search" },
         )
+    }
     }
 }

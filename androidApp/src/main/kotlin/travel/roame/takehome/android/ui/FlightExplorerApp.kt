@@ -2,10 +2,11 @@ package travel.roame.takehome.android.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -91,20 +92,16 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
 
     SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize()) {
+            // Keep the bottom bar in the Scaffold layout always so Discover padding
+            // (and the search pill bounds) stay stable during the shared morph.
             Scaffold(
                 containerColor = RoameColors.Canvas,
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
-                    AnimatedVisibility(
-                        visible = !isSearching,
-                        enter = fadeIn(),
-                        exit = fadeOut(),
-                    ) {
-                        RoameBottomBar(
-                            tab = tab,
-                            onTab = { tab = it },
-                        )
-                    }
+                    RoameBottomBar(
+                        tab = tab,
+                        onTab = { tab = it },
+                    )
                 },
             ) { padding ->
                 when (tab) {
@@ -141,8 +138,8 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
 
             AnimatedVisibility(
                 visible = isSearching,
-                enter = fadeIn(),
-                exit = fadeOut(),
+                enter = EnterTransition.None,
+                exit = ExitTransition.None,
                 modifier = Modifier.fillMaxSize(),
             ) {
                 SearchScreen(
@@ -178,7 +175,11 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
                         .sharedBounds(
                             sharedContentState = rememberSharedContentState(key = "searchCard"),
                             animatedVisibilityScope = this,
+                            enter = EnterTransition.None,
+                            exit = ExitTransition.None,
                             boundsTransform = { _, _ -> SearchSharedSpring },
+                            resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
+                            clipInOverlayDuringTransition = OverlayClip(RoameShapes.Panel),
                         ),
                 )
             }

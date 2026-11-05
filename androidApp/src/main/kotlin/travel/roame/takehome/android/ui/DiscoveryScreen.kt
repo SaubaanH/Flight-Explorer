@@ -1,11 +1,11 @@
 package travel.roame.takehome.android.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -89,8 +89,9 @@ fun SharedTransitionScope.DiscoveryScreen(
 
             AnimatedVisibility(
                 visible = !isSearching,
-                enter = fadeIn(),
-                exit = fadeOut(),
+                // None: let sharedBounds drive the pill→page morph (fade makes it look top-grown).
+                enter = EnterTransition.None,
+                exit = ExitTransition.None,
             ) {
                 SearchPill(
                     summary = searchSummary(filters),
@@ -99,7 +100,11 @@ fun SharedTransitionScope.DiscoveryScreen(
                     modifier = Modifier.sharedBounds(
                         sharedContentState = rememberSharedContentState(key = "searchCard"),
                         animatedVisibilityScope = this,
+                        enter = EnterTransition.None,
+                        exit = ExitTransition.None,
                         boundsTransform = { _, _ -> SearchSharedSpring },
+                        resizeMode = SharedTransitionScope.ResizeMode.RemeasureToBounds,
+                        clipInOverlayDuringTransition = OverlayClip(RoameShapes.Panel),
                     ),
                 )
             }
