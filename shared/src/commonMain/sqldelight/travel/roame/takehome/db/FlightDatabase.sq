@@ -1,0 +1,61 @@
+CREATE TABLE flight_cache (
+  id TEXT NOT NULL PRIMARY KEY,
+  origin TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  departureDate TEXT NOT NULL,
+  program TEXT NOT NULL,
+  points INTEGER NOT NULL,
+  cabin TEXT NOT NULL,
+  originCity TEXT NOT NULL,
+  destinationCity TEXT NOT NULL,
+  originLatitude REAL NOT NULL,
+  originLongitude REAL NOT NULL,
+  destinationLatitude REAL NOT NULL,
+  destinationLongitude REAL NOT NULL
+);
+
+CREATE TABLE saved_flights (
+  id TEXT NOT NULL PRIMARY KEY,
+  origin TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  departureDate TEXT NOT NULL,
+  program TEXT NOT NULL,
+  points INTEGER NOT NULL,
+  cabin TEXT NOT NULL,
+  originCity TEXT NOT NULL,
+  destinationCity TEXT NOT NULL,
+  originLatitude REAL NOT NULL,
+  originLongitude REAL NOT NULL,
+  destinationLatitude REAL NOT NULL,
+  destinationLongitude REAL NOT NULL,
+  savedAt INTEGER NOT NULL
+);
+
+selectAllCache:
+SELECT * FROM flight_cache;
+
+deleteAllCache:
+DELETE FROM flight_cache;
+
+insertCache:
+INSERT OR REPLACE INTO flight_cache(
+  id, origin, destination, departureDate, program, points, cabin,
+  originCity, destinationCity, originLatitude, originLongitude,
+  destinationLatitude, destinationLongitude
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+selectAllSaved:
+SELECT * FROM saved_flights ORDER BY savedAt DESC;
+
+selectSavedById:
+SELECT * FROM saved_flights WHERE id = ?;
+
+upsertSaved:
+INSERT OR REPLACE INTO saved_flights(
+  id, origin, destination, departureDate, program, points, cabin,
+  originCity, destinationCity, originLatitude, originLongitude,
+  destinationLatitude, destinationLongitude, savedAt
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteSaved:
+DELETE FROM saved_flights WHERE id = ?;
