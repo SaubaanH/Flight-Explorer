@@ -1,5 +1,6 @@
 package travel.roame.takehome.android.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,7 +27,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,6 +46,7 @@ import travel.roame.takehome.FlightExplorer
 @Composable
 fun FlightExplorerApp(explorer: FlightExplorer) {
     var tab by remember { mutableIntStateOf(0) }
+    var isSearching by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
 
     val filters by explorer.filters.collectAsState()
@@ -55,6 +59,23 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
     val browsing by explorer.browsingCluster.collectAsState()
     val saveError by explorer.saveError.collectAsState()
 
+    var originText by remember { mutableStateOf(filters.originQuery) }
+    var destText by remember { mutableStateOf(filters.destinationQuery) }
+    var pointsSlider by remember {
+        mutableFloatStateOf((filters.maxPoints ?: 133000).toFloat())
+    }
+
+    fun resetAll() {
+        originText = ""
+        destText = ""
+        pointsSlider = 133000f
+        explorer.resetFilters()
+    }
+
+    BackHandler(enabled = isSearching) {
+        isSearching = false
+    }
+
     LaunchedEffect(saveError) {
         val message = saveError ?: return@LaunchedEffect
         snackbar.showSnackbar(message)
@@ -65,30 +86,75 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
         containerColor = RoameColors.Canvas,
         snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
-            RoameBottomBar(
-                tab = tab,
-                onTab = { tab = it },
-            )
+            if (!isSearching) {
+                RoameBottomBar(
+                    tab = tab,
+                    onTab = { tab = it },
+                )
+            }
         },
     ) { padding ->
-        when (tab) {
-            0 -> DiscoveryScreen(
+        if (isSearching) {
+            SearchScreen(
                 filters = filters,
-                filteredFlights = filtered,
-                clusters = clusters,
-                selectedFlight = selected,
-                savedIds = savedIds,
-                status = status,
-                browsingCluster = browsing,
-                explorer = explorer,
+                originText = originText,
+                destText = destText,
+                pointsSlider = pointsSlider,
+                onOriginChange = {
+                    originText = it
+                    explorer.setOriginQuery(it)
+                },
+                onDestChange = {
+                    destText = it
+                    explorer.setDestinationQuery(it)
+                },
+                onDateFrom = { explorer.setDateRange(it, filters.dateTo) },
+                onDateTo = { explorer.setDateRange(filters.dateFrom, it) },
+                onCabin = explorer::setCabin,
+                onPointsSlider = { pointsSlider = it },
+                onPointsFinished = { explorer.setMaxPoints(pointsSlider.toInt()) },
+                onTogglePointsFilter = {
+                    if (filters.maxPoints == null) {
+                        explorer.setMaxPoints(pointsSlider.toInt())
+                    } else {
+                        explorer.setMaxPoints(null)
+                    }
+                },
+                onToggleProgram = explorer::toggleProgram,
+                onReset = ::resetAll,
+                onClose = { isSearching = false },
                 modifier = Modifier.padding(padding),
             )
-            else -> SavedScreen(
-                savedFlights = saved,
-                selectedFlight = selected,
-                explorer = explorer,
-                modifier = Modifier.padding(padding),
-            )
+        } else {
+            when (tab) {
+                0 -> DiscoveryScreen(
+                    filters = filters,
+                    filteredFlights = filtered,
+                    clusters = clusters,
+                    selectedFlight = selected,
+                    savedIds = savedIds,
+                    status = status,
+                    browsingCluster = browsing,
+                    explorer = explorer,
+                    onOpenSearch = { isSearching = true },
+                    onClearOrigin = {
+                        originText = ""
+                        explorer.setOriginQuery("")
+                    },
+                    onClearDestination = {
+                        destText = ""
+                        explorer.setDestinationQuery("")
+                    },
+                    onResetFilters = ::resetAll,
+                    modifier = Modifier.padding(padding),
+                )
+                else -> SavedScreen(
+                    savedFlights = saved,
+                    selectedFlight = selected,
+                    explorer = explorer,
+                    modifier = Modifier.padding(padding),
+                )
+            }
         }
     }
 }

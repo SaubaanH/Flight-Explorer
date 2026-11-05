@@ -38,7 +38,6 @@ enum SearchSummary {
 struct SearchPill: View {
     let summary: String
     let detail: String
-    let namespace: Namespace.ID
     let onTap: () -> Void
 
     var body: some View {
@@ -65,7 +64,6 @@ struct SearchPill: View {
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .fill(RoameTheme.surface)
-                    .matchedGeometryEffect(id: "searchCard", in: namespace)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
@@ -77,20 +75,21 @@ struct SearchPill: View {
     }
 }
 
-struct SearchPanel: View {
+/// Full-screen search page (covers tabs via fullScreenCover).
+struct SearchScreen: View {
     @ObservedObject var model: FlightExplorerModel
-    let namespace: Namespace.ID
     let onClose: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 Button(action: onClose) {
-                    Image(systemName: "xmark")
+                    Image(systemName: "chevron.left")
                         .font(.body.weight(.semibold))
                         .foregroundStyle(RoameTheme.ink)
                         .frame(width: 36, height: 36)
-                        .background(Circle().fill(Color(.systemGray6)))
+                        .background(Circle().fill(RoameTheme.surface))
+                        .overlay(Circle().stroke(RoameTheme.hairline, lineWidth: 1))
                 }
                 .accessibilityLabel("Close search")
                 Spacer()
@@ -100,8 +99,8 @@ struct SearchPanel: View {
                 Color.clear.frame(width: 36, height: 36)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 12)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
@@ -210,17 +209,7 @@ struct SearchPanel: View {
                 .accessibilityLabel("Apply search")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(RoameTheme.surface)
-                .matchedGeometryEffect(id: "searchCard", in: namespace)
-                .ignoresSafeArea(edges: .bottom)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(RoameTheme.hairline, lineWidth: 1)
-                .ignoresSafeArea(edges: .bottom)
-        )
+        .background(RoameTheme.canvas.ignoresSafeArea())
     }
 
     private func field(
@@ -235,7 +224,7 @@ struct SearchPanel: View {
                 .foregroundStyle(RoameTheme.muted)
             TextField(placeholder, text: text)
                 .padding(14)
-                .background(RoameTheme.canvas)
+                .background(RoameTheme.surface)
                 .overlay(Capsule().stroke(RoameTheme.hairline, lineWidth: 1))
                 .clipShape(Capsule())
                 .accessibilityLabel(a11y)

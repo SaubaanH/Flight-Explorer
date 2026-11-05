@@ -3,7 +3,6 @@ import Shared
 
 struct DiscoveryView: View {
     @ObservedObject var model: FlightExplorerModel
-    @Namespace private var searchNS
     @State private var isSearching = false
     @State private var pane: Pane = .list
     /// Matches `FlightExplorer.LIST_PAGE_SIZE` — keep in sync.
@@ -16,41 +15,21 @@ struct DiscoveryView: View {
 
     private let pageSize = 24
 
-    private var spring: Animation {
-        .spring(duration: 0.35, bounce: 0.15)
-    }
-
     var body: some View {
-        ZStack {
-            discoverContent
-                .overlay {
-                    Color.black
-                        .opacity(isSearching ? 0.15 : 0)
-                        .ignoresSafeArea()
-                        .allowsHitTesting(isSearching)
-                        .onTapGesture { closeSearch() }
-                        .animation(spring, value: isSearching)
-                }
-
-            if isSearching {
-                SearchPanel(model: model, namespace: searchNS, onClose: closeSearch)
-                    .padding(.horizontal, 8)
-                    .padding(.top, 8)
-                    .padding(.bottom, 8)
-                    .transition(.opacity)
-                    .zIndex(2)
+        discoverContent
+            .padding(.horizontal, 16)
+            .background(RoameTheme.canvas.ignoresSafeArea())
+            .fullScreenCover(isPresented: $isSearching) {
+                SearchScreen(model: model, onClose: { isSearching = false })
             }
-        }
-        .padding(.horizontal, isSearching ? 0 : 16)
-        .background(RoameTheme.canvas.ignoresSafeArea())
-        .alert("Save error", isPresented: Binding(
-            get: { model.saveError != nil },
-            set: { if !$0 { model.clearSaveError() } }
-        )) {
-            Button("OK", role: .cancel) { model.clearSaveError() }
-        } message: {
-            Text(model.saveError ?? "")
-        }
+            .alert("Save error", isPresented: Binding(
+                get: { model.saveError != nil },
+                set: { if !$0 { model.clearSaveError() } }
+            )) {
+                Button("OK", role: .cancel) { model.clearSaveError() }
+            } message: {
+                Text(model.saveError ?? "")
+            }
     }
 
     private var discoverContent: some View {
@@ -65,18 +44,11 @@ struct DiscoveryView: View {
                 Spacer(minLength: 0)
             }
 
-            if !isSearching {
-                SearchPill(
-                    summary: SearchSummary.text(model: model),
-                    detail: SearchSummary.detail(model: model),
-                    namespace: searchNS,
-                    onTap: openSearch
-                )
-                .transition(.opacity)
-            } else {
-                // Keep layout height stable while the panel morphs over the content.
-                Color.clear.frame(height: 64)
-            }
+            SearchPill(
+                summary: SearchSummary.text(model: model),
+                detail: SearchSummary.detail(model: model),
+                onTap: { isSearching = true }
+            )
 
             ActiveFilterChipsView(model: model)
 
@@ -110,7 +82,7 @@ struct DiscoveryView: View {
                         )
                 }
 
-                if let flight = model.selectedFlight, !isSearching {
+                if let flight = model.selectedFlight {
                     SelectionCardView(
                         flight: flight,
                         saved: model.isSaved(flight.id),
@@ -146,14 +118,6 @@ struct DiscoveryView: View {
         .background(RoameTheme.surface)
         .overlay(Capsule().stroke(RoameTheme.hairline, lineWidth: 1))
         .clipShape(Capsule())
-    }
-
-    private func openSearch() {
-        withAnimation(spring) { isSearching = true }
-    }
-
-    private func closeSearch() {
-        withAnimation(spring) { isSearching = false }
     }
 }
 

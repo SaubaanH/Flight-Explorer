@@ -2,8 +2,6 @@ package travel.roame.takehome.android.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -15,12 +13,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,8 +33,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -115,9 +112,10 @@ fun SearchPill(
     }
 }
 
+/** Full-screen search page (covers bottom tabs when shown from the app shell). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SearchPanel(
+fun SearchScreen(
     filters: FlightFilters,
     originText: String,
     destText: String,
@@ -140,16 +138,15 @@ fun SearchPanel(
         unfocusedBorderColor = RoameColors.Hairline,
         focusedLabelColor = RoameColors.Pink,
         cursorColor = RoameColors.Pink,
-        focusedContainerColor = RoameColors.Canvas,
-        unfocusedContainerColor = RoameColors.Canvas,
+        focusedContainerColor = RoameColors.Surface,
+        unfocusedContainerColor = RoameColors.Surface,
     )
 
     Column(
         modifier
             .fillMaxSize()
-            .clip(RoameShapes.Panel)
-            .background(RoameColors.Surface)
-            .border(1.dp, RoameColors.Hairline, RoameShapes.Panel),
+            .background(RoameColors.Canvas)
+            .statusBarsPadding(),
     ) {
         Row(
             Modifier
@@ -160,13 +157,14 @@ fun SearchPanel(
             Surface(
                 onClick = onClose,
                 shape = CircleShape,
-                color = Color(0xFFF0F0F0),
+                color = RoameColors.Surface,
+                border = BorderStroke(1.dp, RoameColors.Hairline),
                 modifier = Modifier
                     .size(36.dp)
                     .semantics { contentDescription = "Close search" },
             ) {
                 Icon(
-                    Icons.Default.Close,
+                    Icons.AutoMirrored.Filled.ArrowBack,
                     contentDescription = null,
                     modifier = Modifier.padding(8.dp),
                     tint = RoameColors.Ink,
