@@ -8,6 +8,7 @@ struct SelectedFlightItem: Identifiable {
 }
 
 /// Bottom sheet for a selected flight: details + embedded route map + Save/Remove.
+/// Sized just tall enough to show Save — no empty stretch below the details.
 struct FlightDetailSheet: View {
     let flight: Flight
     let saved: Bool
@@ -15,65 +16,49 @@ struct FlightDetailSheet: View {
     let onRemove: () -> Void
     let onDismiss: () -> Void
 
+    private let fittedDetent = PresentationDetent.height(560)
+
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(flight.origin) → \(flight.destination)")
-                            .font(.system(.title2, design: .serif).weight(.semibold))
-                            .foregroundStyle(RoameTheme.ink)
-                        Text("\(flight.originCity) → \(flight.destinationCity)")
-                            .font(.subheadline)
-                            .foregroundStyle(RoameTheme.muted)
-                    }
-
-                    RoutePreviewMap(flight: flight)
-                        .frame(height: 200)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(RoameTheme.hairline, lineWidth: 1)
-                        )
-
-                    detailRow("Departure", flight.departureDate)
-                    detailRow("Cabin", flight.cabin)
-                    detailRow("Program", flight.program)
-
-                    Text("\(flight.points.formatted()) points")
-                        .font(.title2.bold())
-                        .foregroundStyle(RoameTheme.ink)
-                }
-                .padding(16)
-                .padding(.bottom, 8)
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(flight.origin) → \(flight.destination)")
+                    .font(.system(.title2, design: .serif).weight(.semibold))
+                    .foregroundStyle(RoameTheme.ink)
+                Text("\(flight.originCity) → \(flight.destinationCity)")
+                    .font(.subheadline)
+                    .foregroundStyle(RoameTheme.muted)
             }
-            .background(RoameTheme.canvas.ignoresSafeArea())
-            .safeAreaInset(edge: .bottom) {
-                // Pinned action — always visible.
-                Group {
-                    if saved {
-                        RoamePillButton(label: "Remove", filled: false, action: onRemove)
-                            .accessibilityLabel("Remove saved flight")
-                    } else {
-                        RoamePillButton(label: "Save", action: onSave)
-                            .accessibilityLabel("Save flight")
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
-                .background(RoameTheme.canvas.opacity(0.96))
+
+            RoutePreviewMap(flight: flight)
+                .frame(height: 180)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(RoameTheme.hairline, lineWidth: 1)
+                )
+
+            detailRow("Departure", flight.departureDate)
+            detailRow("Cabin", flight.cabin)
+            detailRow("Program", flight.program)
+
+            Text("\(flight.points.formatted()) points")
+                .font(.title2.bold())
+                .foregroundStyle(RoameTheme.ink)
+
+            if saved {
+                RoamePillButton(label: "Remove", filled: false, action: onRemove)
+                    .accessibilityLabel("Remove saved flight")
+            } else {
+                RoamePillButton(label: "Save", action: onSave)
+                    .accessibilityLabel("Save flight")
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close", action: onDismiss)
-                }
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Selected flight details")
         }
-        .presentationDetents([.large, .fraction(0.88)])
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(RoameTheme.canvas.ignoresSafeArea())
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Selected flight details")
+        .presentationDetents([fittedDetent, .large])
         .presentationDragIndicator(.visible)
     }
 
