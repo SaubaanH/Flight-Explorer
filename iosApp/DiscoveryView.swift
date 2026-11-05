@@ -6,11 +6,15 @@ struct DiscoveryView: View {
     @Namespace private var searchNS
     @State private var isSearching = false
     @State private var pane: Pane = .list
+    /// Matches `FlightExplorer.LIST_PAGE_SIZE` — keep in sync.
+    @State private var listLimit = 40
 
     private enum Pane: String, CaseIterable {
         case list = "List"
         case map = "Map"
     }
+
+    private let pageSize = 40
 
     private var spring: Animation {
         .spring(duration: 0.35, bounce: 0.15)
@@ -85,18 +89,16 @@ struct DiscoveryView: View {
                         ContentUnavailableView("No flights match these filters.", systemImage: "airplane")
                             .foregroundStyle(RoameTheme.muted)
                     } else {
-                        ScrollView {
-                            LazyVStack(spacing: 12) {
-                                ForEach(model.filteredFlights, id: \.id) { flight in
-                                    FlightRowView(
-                                        flight: flight,
-                                        selected: model.selectedFlight?.id == flight.id,
-                                        saved: model.isSaved(flight.id),
-                                        onTap: { model.select(flight.id) }
-                                    )
-                                }
-                            }
-                            .padding(.bottom, 160)
+                        WindowedFlightList(
+                            flights: model.filteredFlights,
+                            selectedId: model.selectedFlight?.id,
+                            isSaved: model.isSaved,
+                            listLimit: $listLimit,
+                            pageSize: pageSize,
+                            onSelect: { model.select($0) }
+                        )
+                        .onChange(of: model.resultCount) { _, _ in
+                            listLimit = min(pageSize, model.filteredFlights.count)
                         }
                     }
                 case .map:
@@ -152,6 +154,46 @@ struct DiscoveryView: View {
 
     private func closeSearch() {
         withAnimation(spring) { isSearching = false }
+    }
+}
+
+private struct WindowedFlightList: View {
+    let flights: [Flight]
+    let selectedId: String?
+    let isSaved: (String) -> Bool
+    @Binding var listLimit: Int
+    let pageSize: Int
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        let shown = Array(flights.prefix(listLimit))
+        List {
+            ForEach(shown, id: \.id) { flight in
+                FlightRowView(
+                    flight: flight,
+                    selected: selectedId == flight.id,
+                    saved: isSaved(flight.id),
+                    onTap: { onSelect(flight.id) }
+                )
+                .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            }
+            if listLimit < flights.count {
+                Text("Showing \(listLimit) of \(flights.count)…")
+                    .font(.caption)
+                    .foregroundStyle(RoameTheme.muted)
+                    .frame(maxWidth: .infinity)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .onAppear {
+                        listLimit = min(listLimit + pageSize, flights.count)
+                    }
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 140) }
     }
 }
 

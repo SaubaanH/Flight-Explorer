@@ -242,7 +242,8 @@ fun FlightRow(
             1.dp,
             if (selected) RoameColors.Pink.copy(alpha = 0.35f) else RoameColors.Hairline,
         ),
-        shadowElevation = if (selected) 2.dp else 0.dp,
+        // Keep rows flat — elevation on 1000+ list items is expensive while scrolling.
+        shadowElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
             .semantics {

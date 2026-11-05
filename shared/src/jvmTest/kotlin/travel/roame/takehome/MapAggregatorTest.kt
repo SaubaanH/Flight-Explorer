@@ -35,4 +35,18 @@ class MapAggregatorTest {
         assertEquals(filtered.map { it.destination }.toSet().size, clusters.size)
         assertEquals(filtered.size, clusters.sumOf { it.flightCount })
     }
+
+    @Test
+    fun mapClustersOmitNestedFlightsByDefault() {
+        val clusters = MapAggregator.byDestination(flights)
+        assertTrue(clusters.all { it.flights.isEmpty() })
+    }
+
+    @Test
+    fun flightsForDestinationAreSortedByPointsThenDate() {
+        val destination = flights.first().destination
+        val sorted = MapAggregator.flightsForDestination(flights, destination)
+        assertTrue(sorted.isNotEmpty())
+        assertEquals(sorted, sorted.sortedWith(compareBy({ it.points }, { it.departureDate }, { it.id })))
+    }
 }

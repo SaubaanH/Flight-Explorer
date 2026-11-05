@@ -148,7 +148,7 @@ class FlightExplorer(
     }
 
     fun openCluster(cluster: DestinationCluster) {
-        _browsingCluster.value = cluster
+        _browsingCluster.value = hydrateCluster(cluster, _filteredFlights.value)
     }
 
     fun dismissCluster() {
@@ -240,7 +240,7 @@ class FlightExplorer(
         val browsing = _browsingCluster.value
         if (browsing != null) {
             val refreshed = clusters.firstOrNull { it.destination == browsing.destination }
-            _browsingCluster.value = refreshed
+            _browsingCluster.value = refreshed?.let { hydrateCluster(it, filtered) }
         }
         if (_status.value == LoadStatus.Ready || _status.value == LoadStatus.Empty) {
             if (source.isEmpty()) {
@@ -262,7 +262,15 @@ class FlightExplorer(
         }
     }
 
+    private fun hydrateCluster(
+        cluster: DestinationCluster,
+        filtered: List<Flight>,
+    ): DestinationCluster =
+        cluster.copy(flights = MapAggregator.flightsForDestination(filtered, cluster.destination))
+
     companion object {
         const val SEARCH_DEBOUNCE_MS: Long = 250L
+        /** Initial / incremental page size for Discover list UIs. */
+        const val LIST_PAGE_SIZE: Int = 40
     }
 }

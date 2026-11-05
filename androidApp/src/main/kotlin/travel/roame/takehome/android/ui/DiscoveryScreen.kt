@@ -22,17 +22,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +50,7 @@ import travel.roame.takehome.model.DestinationCluster
 import travel.roame.takehome.model.Flight
 import travel.roame.takehome.model.FlightFilters
 import travel.roame.takehome.model.LoadStatus
+import kotlin.math.min
 
 private enum class DiscoverPane { List, Map }
 
@@ -154,19 +159,12 @@ fun DiscoveryScreen(
                                     color = RoameColors.Muted,
                                 )
                             } else {
-                                LazyColumn(
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(bottom = 160.dp),
-                                ) {
-                                    items(filteredFlights, key = { it.id }) { flight ->
-                                        FlightRow(
-                                            flight = flight,
-                                            selected = flight.id == selectedFlight?.id,
-                                            saved = flight.id in savedIds,
-                                            onClick = { explorer.selectFlight(flight.id) },
-                                        )
-                                    }
-                                }
+                                WindowedFlightList(
+                                    flights = filteredFlights,
+                                    selectedFlight = selectedFlight,
+                                    savedIds = savedIds,
+                                    onSelect = { explorer.selectFlight(it.id) },
+                                )
                             }
                         }
                         DiscoverPane.Map -> {
@@ -304,6 +302,67 @@ fun DiscoveryScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun WindowedFlightList(
+    flights: List<Flight>,
+    selectedFlight: Flight?,
+    savedIds: Set<String>,
+    onSelect: (Flight) -> Unit,
+) {
+    var visibleCount by remember { mutableIntStateOf(FlightExplorer.LIST_PAGE_SIZE) }
+    val listState = rememberLazyListState()
+    // Reset the window whenever the filtered set changes (new search / filters).
+    LaunchedEffect(flights) {
+        visibleCount = min(FlightExplorer.LIST_PAGE_SIZE, flights.size)
+        listState.scrollToItem(0)
+    }
+    val shown = remember(flights, visibleCount) { flights.take(visibleCount) }
+
+    // Grow the window only when the user scrolls near the end (avoids LazyColumn prefetch
+    // eagerly composing a footer LaunchedEffect that would load all 1000 rows).
+    LaunchedEffect(listState, shown.size, flights.size, visibleCount) {
+        snapshotFlow {
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: return@snapshotFlow false
+            visibleCount < flights.size && lastVisible >= shown.lastIndex - 2
+        }.collect { nearEnd ->
+            if (nearEnd) {
+                visibleCount = min(visibleCount + FlightExplorer.LIST_PAGE_SIZE, flights.size)
+            }
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(bottom = 160.dp),
+    ) {
+        items(
+            items = shown,
+            key = { it.id },
+            contentType = { "flight" },
+        ) { flight ->
+            FlightRow(
+                flight = flight,
+                selected = flight.id == selectedFlight?.id,
+                saved = flight.id in savedIds,
+                onClick = { onSelect(flight) },
+            )
+        }
+        if (visibleCount < flights.size) {
+            item(key = "load-more") {
+                Text(
+                    "Showing $visibleCount of ${flights.size}…",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    color = RoameColors.Muted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
     }
 }
 
