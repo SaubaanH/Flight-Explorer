@@ -54,7 +54,7 @@
   let routeSourceReady = false;
   let pending = null;
   let styleIndex = 0;
-  let lastMarkerKey = '';
+  let lastMarkerKey = null;
 
   function onMapReady() {
     statusEl.style.display = 'none';
@@ -160,8 +160,10 @@
       }
     }
 
-    // Only camera-fit when the marker set changes — selection/route updates keep the view steady.
-    if (markersChanged && !bounds.isEmpty()) {
+    // Fit when markers change. Also fit for route-only previews (detail sheet has no markers).
+    // Selection changes on the Discover map keep the camera steady.
+    const hasMarkers = (markers || []).length > 0;
+    if (!bounds.isEmpty() && (markersChanged || (!hasMarkers && route))) {
       map.fitBounds(bounds, { padding: 48, maxZoom: 5, duration: 500 });
     }
   }

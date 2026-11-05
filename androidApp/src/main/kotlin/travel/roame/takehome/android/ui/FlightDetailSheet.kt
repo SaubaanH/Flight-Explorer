@@ -108,13 +108,19 @@ fun FlightDetailSheet(
                         color = RoameColors.Muted,
                     )
 
-                    RoutePreview(
-                        flight = flight,
-                        modifier = Modifier
+                    Box(
+                        Modifier
                             .fillMaxWidth()
                             .height(180.dp)
                             .clip(RoameShapes.Card),
-                    )
+                    ) {
+                        FlightMap(
+                            clusters = emptyList(),
+                            selectedFlight = flight,
+                            onClusterTap = {},
+                            modifier = Modifier.fillMaxWidth().height(180.dp),
+                        )
+                    }
 
                     DetailRow(label = "Departure", value = flight.departureDate)
                     DetailRow(label = "Cabin", value = flight.cabin)
