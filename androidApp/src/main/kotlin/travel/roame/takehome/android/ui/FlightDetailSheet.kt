@@ -6,8 +6,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +35,7 @@ import travel.roame.takehome.model.Flight
 
 /**
  * Bottom sheet for a selected flight: details + embedded route map + Save/Remove.
+ * Opens near-full height with Save pinned so it stays on screen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +46,7 @@ fun FlightDetailSheet(
     onRemove: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -54,75 +57,89 @@ fun FlightDetailSheet(
         Column(
             Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 28.dp)
+                .fillMaxHeight(0.92f)
+                .navigationBarsPadding()
                 .semantics { contentDescription = "Selected flight details" },
-            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                "${flight.origin} → ${flight.destination}",
-                fontFamily = FontFamily.Serif,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 24.sp,
-                color = RoameColors.Ink,
-            )
-            Text(
-                "${flight.originCity} → ${flight.destinationCity}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = RoameColors.Muted,
-            )
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    "${flight.origin} → ${flight.destination}",
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 24.sp,
+                    color = RoameColors.Ink,
+                )
+                Text(
+                    "${flight.originCity} → ${flight.destinationCity}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = RoameColors.Muted,
+                )
 
-            Box(
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoameShapes.Card),
+                ) {
+                    FlightMap(
+                        clusters = emptyList(),
+                        selectedFlight = flight,
+                        onClusterTap = {},
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                    )
+                }
+
+                DetailRow(label = "Departure", value = flight.departureDate)
+                DetailRow(label = "Cabin", value = flight.cabin)
+                DetailRow(label = "Program", value = flight.program)
+                Text(
+                    "%,d points".format(flight.points),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    color = RoameColors.Ink,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+
+            // Pinned action — always visible at the bottom of the sheet.
+            Column(
                 Modifier
                     .fillMaxWidth()
-                    .height(220.dp)
-                    .clip(RoameShapes.Card),
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 8.dp, bottom = 20.dp),
             ) {
-                // Route-only preview (no destination clusters).
-                FlightMap(
-                    clusters = emptyList(),
-                    selectedFlight = flight,
-                    onClusterTap = {},
-                    modifier = Modifier.fillMaxWidth().height(220.dp),
-                )
-            }
-
-            DetailRow(label = "Departure", value = flight.departureDate)
-            DetailRow(label = "Cabin", value = flight.cabin)
-            DetailRow(label = "Program", value = flight.program)
-            Text(
-                "%,d points".format(flight.points),
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                color = RoameColors.Ink,
-            )
-
-            if (saved) {
-                OutlinedButton(
-                    onClick = onRemove,
-                    shape = RoameShapes.Pill,
-                    border = BorderStroke(1.dp, RoameColors.Pink),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = RoameColors.Pink),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics { contentDescription = "Remove saved flight" },
-                ) {
-                    Text("Remove", fontWeight = FontWeight.SemiBold)
-                }
-            } else {
-                Button(
-                    onClick = onSave,
-                    shape = RoameShapes.Pill,
-                    colors = ButtonDefaults.buttonColors(containerColor = RoameColors.Pink),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics { contentDescription = "Save flight" },
-                ) {
-                    Text("Save", fontWeight = FontWeight.SemiBold, color = RoameColors.Ink)
+                if (saved) {
+                    OutlinedButton(
+                        onClick = onRemove,
+                        shape = RoameShapes.Pill,
+                        border = BorderStroke(1.dp, RoameColors.Pink),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = RoameColors.Pink),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = "Remove saved flight" },
+                    ) {
+                        Text("Remove", fontWeight = FontWeight.SemiBold)
+                    }
+                } else {
+                    Button(
+                        onClick = onSave,
+                        shape = RoameShapes.Pill,
+                        colors = ButtonDefaults.buttonColors(containerColor = RoameColors.Pink),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = "Save flight" },
+                    ) {
+                        Text("Save", fontWeight = FontWeight.SemiBold, color = RoameColors.Ink)
+                    }
                 }
             }
-            Spacer(Modifier.height(8.dp))
         }
     }
 }

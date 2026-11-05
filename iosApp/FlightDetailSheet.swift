@@ -29,7 +29,7 @@ struct FlightDetailSheet: View {
                     }
 
                     RoutePreviewMap(flight: flight)
-                        .frame(height: 220)
+                        .frame(height: 200)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -43,7 +43,14 @@ struct FlightDetailSheet: View {
                     Text("\(flight.points.formatted()) points")
                         .font(.title2.bold())
                         .foregroundStyle(RoameTheme.ink)
-
+                }
+                .padding(16)
+                .padding(.bottom, 8)
+            }
+            .background(RoameTheme.canvas.ignoresSafeArea())
+            .safeAreaInset(edge: .bottom) {
+                // Pinned action — always visible.
+                Group {
                     if saved {
                         RoamePillButton(label: "Remove", filled: false, action: onRemove)
                             .accessibilityLabel("Remove saved flight")
@@ -52,9 +59,11 @@ struct FlightDetailSheet: View {
                             .accessibilityLabel("Save flight")
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity)
+                .background(RoameTheme.canvas.opacity(0.96))
             }
-            .background(RoameTheme.canvas.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -64,7 +73,7 @@ struct FlightDetailSheet: View {
             .accessibilityElement(children: .contain)
             .accessibilityLabel("Selected flight details")
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large, .fraction(0.88)])
         .presentationDragIndicator(.visible)
     }
 
