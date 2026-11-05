@@ -22,6 +22,15 @@ struct RoameStarterApp: App {
             }
             .tint(RoameTheme.pink)
             .background(RoameTheme.canvas.ignoresSafeArea())
+            // App-root so Discover and Saved both surface persistence failures.
+            .alert("Save error", isPresented: Binding(
+                get: { model.saveError != nil },
+                set: { if !$0 { model.clearSaveError() } }
+            )) {
+                Button("OK", role: .cancel) { model.clearSaveError() }
+            } message: {
+                Text(model.saveError ?? "")
+            }
         }
     }
 }

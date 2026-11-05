@@ -39,14 +39,6 @@ struct DiscoveryView: View {
         .background(RoameTheme.canvas.ignoresSafeArea())
         .toolbar(isSearching ? .hidden : .automatic, for: .tabBar)
         .animation(searchSpring, value: isSearching)
-        .alert("Save error", isPresented: Binding(
-            get: { model.saveError != nil },
-            set: { if !$0 { model.clearSaveError() } }
-        )) {
-            Button("OK", role: .cancel) { model.clearSaveError() }
-        } message: {
-            Text(model.saveError ?? "")
-        }
     }
 
     private var discoverContent: some View {
@@ -81,7 +73,10 @@ struct DiscoveryView: View {
                 switch pane {
                 case .list:
                     if model.flightCards.isEmpty && !model.isLoading && !model.isError {
-                        ContentUnavailableView("No flights match these filters.", systemImage: "airplane")
+                        let emptyCopy = model.isEmptyResponse
+                            ? "No flights returned from the server."
+                            : "No flights match these filters."
+                        ContentUnavailableView(emptyCopy, systemImage: "airplane")
                             .foregroundStyle(RoameTheme.muted)
                     } else {
                         WindowedFlightList(

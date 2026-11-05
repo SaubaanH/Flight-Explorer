@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -66,22 +67,27 @@ class FlightExplorer(
     private var filterJob: Job? = null
     private var originDebounceJob: Job? = null
     private var destinationDebounceJob: Job? = null
+    private var refreshJob: Job? = null
 
     init {
-        val cached = repository.cachedFlights()
-        _allFlights.value = cached
-        _savedFlights.value = repository.savedFlights()
-        _savedIds.value = _savedFlights.value.map { it.id }.toSet()
-        _status.value = when {
-            cached.isEmpty() -> LoadStatus.Loading
-            else -> LoadStatus.Ready
+        // Bootstrap cache/saved off the caller thread, then refresh the network.
+        scope.launch {
+            val cached = repository.cachedFlights()
+            val saved = repository.savedFlights()
+            _allFlights.value = cached
+            _savedFlights.value = saved
+            _savedIds.value = saved.map { it.id }.toSet()
+            if (cached.isNotEmpty()) {
+                _status.value = LoadStatus.Ready
+            }
+            recomputeFilters()
+            refresh()
         }
-        recomputeFiltersImmediate()
-        refresh()
     }
 
     fun refresh() {
-        scope.launch {
+        refreshJob?.cancel()
+        refreshJob = scope.launch {
             val hadCache = _allFlights.value.isNotEmpty()
             if (!hadCache) {
                 _status.value = LoadStatus.Loading
@@ -89,7 +95,7 @@ class FlightExplorer(
             val result = repository.refresh()
             _allFlights.value = result.flights
             _status.value = result.status
-            recomputeFiltersImmediate()
+            recomputeFilters()
         }
     }
 
@@ -159,41 +165,42 @@ class FlightExplorer(
         _browsingCluster.value = null
     }
 
-    fun saveSelected(): Boolean {
-        val flight = _selectedFlight.value ?: return false
-        return saveFlight(flight)
+    fun saveSelected() {
+        val flight = _selectedFlight.value ?: return
+        saveFlight(flight)
     }
 
-    fun saveFlight(flight: Flight): Boolean {
-        val result = repository.saveFlight(flight)
-        return result.fold(
-            onSuccess = { saved ->
-                _savedFlights.value = saved
-                _savedIds.value = saved.map { it.id }.toSet()
-                _saveError.value = null
-                true
-            },
-            onFailure = { error ->
-                _saveError.value = error.message ?: "Failed to save flight"
-                false
-            },
-        )
+    /** Persists on a background dispatcher; outcome arrives via [savedFlights] / [saveError]. */
+    fun saveFlight(flight: Flight) {
+        scope.launch {
+            val result = repository.saveFlight(flight)
+            result.fold(
+                onSuccess = { saved ->
+                    _savedFlights.value = saved
+                    _savedIds.value = saved.map { it.id }.toSet()
+                    _saveError.value = null
+                },
+                onFailure = { error ->
+                    _saveError.value = error.message ?: "Failed to save flight"
+                },
+            )
+        }
     }
 
-    fun removeSaved(id: String): Boolean {
-        val result = repository.removeSaved(id)
-        return result.fold(
-            onSuccess = { saved ->
-                _savedFlights.value = saved
-                _savedIds.value = saved.map { it.id }.toSet()
-                _saveError.value = null
-                true
-            },
-            onFailure = { error ->
-                _saveError.value = error.message ?: "Failed to remove saved flight"
-                false
-            },
-        )
+    fun removeSaved(id: String) {
+        scope.launch {
+            val result = repository.removeSaved(id)
+            result.fold(
+                onSuccess = { saved ->
+                    _savedFlights.value = saved
+                    _savedIds.value = saved.map { it.id }.toSet()
+                    _saveError.value = null
+                },
+                onFailure = { error ->
+                    _saveError.value = error.message ?: "Failed to remove saved flight"
+                },
+            )
+        }
     }
 
     fun clearSaveError() {
@@ -204,6 +211,8 @@ class FlightExplorer(
         filterJob?.cancel()
         originDebounceJob?.cancel()
         destinationDebounceJob?.cancel()
+        refreshJob?.cancel()
+        scope.cancel()
     }
 
     private fun updateFilters(transform: (FlightFilters) -> FlightFilters) {
@@ -246,13 +255,6 @@ class FlightExplorer(
         if (browsing != null) {
             val refreshed = clusters.firstOrNull { it.destination == browsing.destination }
             _browsingCluster.value = refreshed?.let { hydrateCluster(it, filtered) }
-        }
-        if (_status.value == LoadStatus.Ready || _status.value == LoadStatus.Empty) {
-            if (source.isEmpty()) {
-                // keep existing status (Empty from network or Error)
-            } else if (filtered.isEmpty() && _status.value == LoadStatus.Ready) {
-                // filtered empty is not network Empty — leave Ready; UI shows "0 results"
-            }
         }
     }
 

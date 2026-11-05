@@ -93,7 +93,7 @@ class FlightRepositoryTest {
     }
 
     @Test
-    fun saveUpsertsWithoutDuplicatesAndRemoveWorks() {
+    fun saveUpsertsWithoutDuplicatesAndRemoveWorks() = runTest {
         val local = store()
         val repo = FlightRepository(
             api(

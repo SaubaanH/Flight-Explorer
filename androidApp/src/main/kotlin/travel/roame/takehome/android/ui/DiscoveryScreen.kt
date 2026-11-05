@@ -138,8 +138,12 @@ fun SharedTransitionScope.DiscoveryScreen(
                             status !is LoadStatus.Error &&
                             status != LoadStatus.Loading
                         ) {
+                            val emptyCopy = when (status) {
+                                LoadStatus.Empty -> "No flights returned from the server."
+                                else -> "No flights match these filters."
+                            }
                             Text(
-                                "No flights match these filters.",
+                                emptyCopy,
                                 modifier = Modifier.align(Alignment.Center),
                                 color = RoameColors.Muted,
                             )

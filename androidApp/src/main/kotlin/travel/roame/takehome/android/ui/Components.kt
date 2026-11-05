@@ -109,6 +109,27 @@ fun StatusBanner(
                 }
             }
         }
+        LoadStatus.Empty -> {
+            BannerCard(
+                modifier.semantics { contentDescription = "Empty flights response" },
+                RoameColors.PinkSoft,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "No flights returned from the server.",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    TextButton(onClick = onRetry) {
+                        Text("Retry", color = RoameColors.Pink, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
         else -> Unit
     }
 }

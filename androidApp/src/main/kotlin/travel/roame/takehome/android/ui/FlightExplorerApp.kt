@@ -159,7 +159,11 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
                     onDateTo = { explorer.setDateRange(filters.dateFrom, it) },
                     onCabin = explorer::setCabin,
                     onPointsSlider = { pointsSlider = it },
-                    onPointsFinished = { explorer.setMaxPoints(pointsSlider.toInt()) },
+                    onPointsFinished = {
+                        if (filters.maxPoints != null) {
+                            explorer.setMaxPoints(pointsSlider.toInt())
+                        }
+                    },
                     onTogglePointsFilter = {
                         if (filters.maxPoints == null) {
                             explorer.setMaxPoints(pointsSlider.toInt())

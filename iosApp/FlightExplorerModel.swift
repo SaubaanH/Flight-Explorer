@@ -29,9 +29,24 @@ final class FlightExplorerModel: ObservableObject {
     @Published var isLoading: Bool = true
     @Published var isOfflineStale: Bool = false
     @Published var isError: Bool = false
+    @Published var isEmptyResponse: Bool = false
     @Published var errorMessage: String = ""
     @Published var resultCount: Int = 0
     @Published var saveError: String? = nil
+
+    var datesAreDefault: Bool {
+        dateFrom == FlightFilters.companion.DEFAULT_DATE_FROM &&
+            dateTo == FlightFilters.companion.DEFAULT_DATE_TO
+    }
+
+    var hasActiveFilters: Bool {
+        !originText.trimmingCharacters(in: .whitespaces).isEmpty ||
+            !destinationText.trimmingCharacters(in: .whitespaces).isEmpty ||
+            !datesAreDefault ||
+            cabin != nil ||
+            maxPointsEnabled ||
+            !selectedPrograms.isEmpty
+    }
 
     /// Full Kotlin flights for actions (save/select) — not observed by the list.
     private var flightsById: [String: Flight] = [:]
@@ -57,6 +72,7 @@ final class FlightExplorerModel: ObservableObject {
         isLoading = kind == "loading"
         isOfflineStale = kind == "offline_stale"
         isError = kind == "error"
+        isEmptyResponse = kind == "empty"
         errorMessage = snap.status.errorMessageOrNull ?? ""
         saveError = snap.saveError
 
@@ -138,23 +154,31 @@ final class FlightExplorerModel: ObservableObject {
     func resetFilters() {
         originText = ""
         destinationText = ""
+        dateFrom = FlightFilters.companion.DEFAULT_DATE_FROM
+        dateTo = FlightFilters.companion.DEFAULT_DATE_TO
         maxPointsEnabled = false
         maxPoints = 133_000
         explorer.resetFilters()
+    }
+
+    func clearDateRange() {
+        dateFrom = FlightFilters.companion.DEFAULT_DATE_FROM
+        dateTo = FlightFilters.companion.DEFAULT_DATE_TO
+        explorer.setDateRange(from: dateFrom, to: dateTo)
     }
 
     func select(_ id: String?) { explorer.selectFlight(id: id) }
     func openCluster(_ cluster: DestinationCluster) { explorer.openCluster(cluster: cluster) }
     func dismissCluster() { explorer.dismissCluster() }
 
-    func save(_ flight: Flight) { _ = explorer.saveFlight(flight: flight) }
+    func save(_ flight: Flight) { explorer.saveFlight(flight: flight) }
     func save(cardId: String) {
         if let flight = flightsById[cardId] ?? savedById[cardId] ?? selectedFlight {
-            _ = explorer.saveFlight(flight: flight)
+            explorer.saveFlight(flight: flight)
         }
     }
 
-    func removeSaved(_ id: String) { _ = explorer.removeSaved(id: id) }
+    func removeSaved(_ id: String) { explorer.removeSaved(id: id) }
     func clearSaveError() { explorer.clearSaveError() }
 
     func isSaved(_ id: String) -> Bool { savedIds.contains(id) }

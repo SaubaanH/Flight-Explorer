@@ -30,6 +30,18 @@ struct StatusBannerView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoameTheme.errorSoft)
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            } else if model.isEmptyResponse {
+                HStack {
+                    Text("No flights returned from the server.")
+                        .accessibilityLabel("Empty flights response")
+                    Spacer()
+                    Button("Retry") { model.refresh() }
+                        .fontWeight(.bold)
+                        .foregroundStyle(RoameTheme.pink)
+                }
+                .padding(14)
+                .background(RoameTheme.pinkSoft)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
         }
     }
@@ -170,7 +182,7 @@ struct ActiveFilterChipsView: View {
                     .font(.system(.headline, design: .serif))
                     .accessibilityLabel("Result count \(model.resultCount)")
                 Spacer()
-                if !model.originText.isEmpty || !model.destinationText.isEmpty || model.cabin != nil || model.maxPointsEnabled || !model.selectedPrograms.isEmpty {
+                if model.hasActiveFilters {
                     Button("Reset") { model.resetFilters() }
                         .fontWeight(.bold)
                         .foregroundStyle(RoameTheme.pink)
@@ -186,6 +198,11 @@ struct ActiveFilterChipsView: View {
                     if !model.destinationText.trimmingCharacters(in: .whitespaces).isEmpty {
                         chip("To: \(model.destinationText)") {
                             model.onDestinationChanged("")
+                        }
+                    }
+                    if !model.datesAreDefault {
+                        chip("\(model.dateFrom) → \(model.dateTo)") {
+                            model.clearDateRange()
                         }
                     }
                     if model.cabin != nil {

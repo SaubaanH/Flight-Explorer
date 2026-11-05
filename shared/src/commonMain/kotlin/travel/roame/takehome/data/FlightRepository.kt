@@ -1,42 +1,47 @@
 package travel.roame.takehome.data
 
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import travel.roame.takehome.model.Flight
 import travel.roame.takehome.model.LoadStatus
 
 class FlightRepository(
     private val api: FlightsApi,
     private val store: FlightLocalStore,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     data class RefreshResult(
         val flights: List<Flight>,
         val status: LoadStatus,
     )
 
-    fun cachedFlights(): List<Flight> = store.readCache()
+    private val dbMutex = Mutex()
 
-    fun savedFlights(): List<Flight> = store.readSaved()
-
-    fun savedIds(): Set<String> = store.readSaved().map { it.id }.toSet()
-
-    fun bootstrapStatus(): LoadStatus {
-        val cache = store.readCache()
-        return when {
-            cache.isEmpty() -> LoadStatus.Loading
-            else -> LoadStatus.Ready
+    private suspend fun <T> db(block: () -> T): T =
+        withContext(ioDispatcher) {
+            dbMutex.withLock { block() }
         }
-    }
+
+    suspend fun cachedFlights(): List<Flight> = db { store.readCache() }
+
+    suspend fun savedFlights(): List<Flight> = db { store.readSaved() }
 
     suspend fun refresh(): RefreshResult {
         return try {
             val envelope = api.fetchFlights()
-            store.replaceCache(envelope.flights)
-            val flights = store.readCache()
-            RefreshResult(
-                flights = flights,
-                status = if (flights.isEmpty()) LoadStatus.Empty else LoadStatus.Ready,
-            )
+            db {
+                store.replaceCache(envelope.flights)
+                val flights = store.readCache()
+                RefreshResult(
+                    flights = flights,
+                    status = if (flights.isEmpty()) LoadStatus.Empty else LoadStatus.Ready,
+                )
+            }
         } catch (t: Throwable) {
-            val cache = store.readCache()
+            val cache = db { store.readCache() }
             if (cache.isNotEmpty()) {
                 RefreshResult(flights = cache, status = LoadStatus.OfflineStale)
             } else {
@@ -48,15 +53,27 @@ class FlightRepository(
         }
     }
 
-    fun saveFlight(flight: Flight): Result<List<Flight>> =
-        runCatching {
-            store.upsertSaved(flight)
-            store.readSaved()
+    suspend fun saveFlight(flight: Flight): Result<List<Flight>> =
+        try {
+            Result.success(
+                db {
+                    store.upsertSaved(flight)
+                    store.readSaved()
+                },
+            )
+        } catch (t: Throwable) {
+            Result.failure(t)
         }
 
-    fun removeSaved(id: String): Result<List<Flight>> =
-        runCatching {
-            store.removeSaved(id)
-            store.readSaved()
+    suspend fun removeSaved(id: String): Result<List<Flight>> =
+        try {
+            Result.success(
+                db {
+                    store.removeSaved(id)
+                    store.readSaved()
+                },
+            )
+        } catch (t: Throwable) {
+            Result.failure(t)
         }
 }
