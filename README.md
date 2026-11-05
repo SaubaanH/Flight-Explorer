@@ -31,14 +31,20 @@ curl -s http://127.0.0.1:8080/flights | python3 -c "import sys,json; print(len(j
 
 1. Start the API: `python3 api/serve.py`
 2. Start an emulator (or device; for a physical device set the machine LAN IP — see below).
-3. From repo root:
+3. Forward the host API into the emulator (needed with the baked-in `127.0.0.1` base URL):
+
+   ```bash
+   adb reverse tcp:8080 tcp:8080
+   ```
+
+4. From repo root:
 
    ```bash
    ./gradlew :androidApp:installDebug
    # or Run `androidApp` from Android Studio
    ```
 
-Emulator base URL (baked in): `http://10.0.2.2:8080`.
+Emulator base URL (baked in): `http://127.0.0.1:8080` via `adb reverse`. Re-run the reverse command after cold-booting the AVD. (`ApiBaseUrls.ANDROID_EMULATOR_GATEWAY` still has the classic `10.0.2.2` alias if you prefer that.)
 
 ## Run iOS
 

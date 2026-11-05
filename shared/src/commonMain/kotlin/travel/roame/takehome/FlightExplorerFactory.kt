@@ -31,6 +31,13 @@ object FlightExplorerFactory {
 }
 
 object ApiBaseUrls {
-    const val ANDROID_EMULATOR = "http://10.0.2.2:8080"
+    /**
+     * Emulator loopback + `adb reverse tcp:8080 tcp:8080`.
+     * Prefer this over `10.0.2.2` — on newer Android Emulator networking (`netsimd`)
+     * OkHttp often connect-timeouts to `10.0.2.2` even while host/shell can reach the API.
+     */
+    const val ANDROID_EMULATOR = "http://127.0.0.1:8080"
+    /** Legacy alias (host loopback via emulator gateway). Prefer [ANDROID_EMULATOR]. */
+    const val ANDROID_EMULATOR_GATEWAY = "http://10.0.2.2:8080"
     const val IOS_SIMULATOR = "http://127.0.0.1:8080"
 }
