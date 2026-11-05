@@ -220,12 +220,19 @@
           const east = Math.max(route.oLng, short.lng);
           const south = Math.min(route.oLat, short.lat);
           const north = Math.max(route.oLat, short.lat);
-          const routeBounds = new maplibregl.LngLatBounds([west, south], [east, north]);
+          // Slightly expand so endpoints aren't glued to the crop after aspect fit.
+          const padLng = Math.max((east - west) * 0.12, 4);
+          const padLat = Math.max((north - south) * 0.12, 3);
+          const routeBounds = new maplibregl.LngLatBounds(
+            [west - padLng, south - padLat],
+            [east + padLng, north + padLat]
+          );
           map.fitBounds(routeBounds, {
-            padding: { top: 36, bottom: 36, left: 44, right: 44 },
+            padding: { top: 28, bottom: 28, left: 36, right: 36 },
             maxZoom: 4,
             duration: 0
           });
+          map.once('idle', notifyMapReady);
         } else {
           bounds.extend([route.oLng, route.oLat]);
           bounds.extend([route.dLng, route.dLat]);
@@ -238,6 +245,14 @@
     if (hasMarkers && markersChanged && !bounds.isEmpty()) {
       map.fitBounds(bounds, { padding: 48, maxZoom: 5, duration: 500 });
     }
+  }
+
+  function notifyMapReady() {
+    try {
+      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.mapReady) {
+        window.webkit.messageHandlers.mapReady.postMessage('ready');
+      }
+    } catch (_) {}
   }
 
   window.updateFlightMap = function(markers, route) {

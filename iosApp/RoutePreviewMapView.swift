@@ -1,9 +1,10 @@
-import MapKit
 import SwiftUI
+import WebKit
 import Shared
 
-/// Real MapKit preview. Line + endpoints are one overlay in unwrapped map-point
-/// space so both airports stay in frame on antimeridian routes.
+/// Detail-sheet route map — same MapLibre `map.html` as Android.
+/// MapKit could not keep both airports in frame across the dateline (camera and
+/// pins landed on different world copies). Sketch covers the brief tile load.
 struct RoutePreviewMapView: View {
     let flight: Flight
     @State private var mapReady = false
@@ -13,8 +14,8 @@ struct RoutePreviewMapView: View {
             RouteSketchView(flight: flight)
                 .opacity(mapReady ? 0 : 1)
 
-            RouteMapKitView(flight: flight) {
-                withAnimation(.easeOut(duration: 0.25)) { mapReady = true }
+            MapLibreRouteWebView(flight: flight) {
+                withAnimation(.easeOut(duration: 0.2)) { mapReady = true }
             }
             .opacity(mapReady ? 1 : 0)
         }
@@ -116,9 +117,9 @@ private struct ShortPathLayout {
     }
 }
 
-// MARK: - MapKit
+// MARK: - MapLibre (shared with Android)
 
-private struct RouteMapKitView: UIViewRepresentable {
+private struct MapLibreRouteWebView: UIViewRepresentable {
     let flight: Flight
     var onReady: () -> Void
 
@@ -126,101 +127,90 @@ private struct RouteMapKitView: UIViewRepresentable {
         Coordinator(onReady: onReady)
     }
 
-    func makeUIView(context: Context) -> FittingMapView {
-        let map = FittingMapView(frame: .zero)
-        map.delegate = context.coordinator
-        map.onLayout = { [weak coordinator = context.coordinator] map in
-            coordinator?.fit(map, force: false)
+    func makeUIView(context: Context) -> WKWebView {
+        let content = WKUserContentController()
+        content.add(context.coordinator, name: "mapReady")
+
+        let config = WKWebViewConfiguration()
+        config.userContentController = content
+        let page = WKWebpagePreferences()
+        page.allowsContentJavaScript = true
+        config.defaultWebpagePreferences = page
+
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.isOpaque = false
+        webView.backgroundColor = UIColor(red: 0.94, green: 0.93, blue: 0.92, alpha: 1)
+        webView.scrollView.isScrollEnabled = false
+        webView.scrollView.bounces = false
+        webView.navigationDelegate = context.coordinator
+
+        if let url = Bundle.main.url(forResource: "map", withExtension: "html", subdirectory: "MapAssets") {
+            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
         }
-        map.isScrollEnabled = false
-        map.isZoomEnabled = false
-        map.isRotateEnabled = false
-        map.isPitchEnabled = false
-        map.isUserInteractionEnabled = false
-        map.showsCompass = false
-        map.pointOfInterestFilter = .excludingAll
-        map.overrideUserInterfaceStyle = .light
-        return map
+        return webView
     }
 
-    func updateUIView(_ mapView: FittingMapView, context: Context) {
+    func updateUIView(_ webView: WKWebView, context: Context) {
         context.coordinator.onReady = onReady
-        let geometry = RouteMapGeometry.route(for: flight)
-        context.coordinator.geometry = geometry
-        context.coordinator.flightId = flight.id
-
-        mapView.removeOverlays(mapView.overlays)
-        mapView.addOverlay(ShortPathRouteOverlay(geometry: geometry), level: .aboveRoads)
-        context.coordinator.fit(mapView, force: true)
+        context.coordinator.flight = flight
+        context.coordinator.pushRoute(to: webView)
     }
 
-    final class Coordinator: NSObject, MKMapViewDelegate {
-        var geometry: RouteMapGeometry.Route?
-        var flightId: String?
+    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
+        uiView.configuration.userContentController.removeScriptMessageHandler(forName: "mapReady")
+    }
+
+    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+        var flight: Flight?
         var onReady: () -> Void
-        private var lastFittedId: String?
-        private var lastSize: CGSize = .zero
-        private var didSignalReady = false
+        private var pageReady = false
+        private var didSignal = false
 
         init(onReady: @escaping () -> Void) {
             self.onReady = onReady
         }
 
-        func fit(_ mapView: MKMapView, force: Bool) {
-            guard let geometry else { return }
-            let size = mapView.bounds.size
-            guard size.width > 1, size.height > 1 else {
-                DispatchQueue.main.async { [weak self, weak mapView] in
-                    guard let self, let mapView else { return }
-                    self.fit(mapView, force: true)
-                }
-                return
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            pageReady = true
+            pushRoute(to: webView)
+            // Fallback if idle never fires (cached tiles / offline style).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                self?.signalReady()
             }
-
-            let sizeChanged = abs(size.width - lastSize.width) > 1 || abs(size.height - lastSize.height) > 1
-            let idChanged = flightId != lastFittedId
-            guard force || sizeChanged || idChanged else { return }
-            lastSize = size
-            lastFittedId = flightId
-            if idChanged { didSignalReady = false }
-
-            // Pixel padding on top of the already-padded mapRect.
-            let inset = UIEdgeInsets(top: 24, left: 36, bottom: 24, right: 36)
-            mapView.setVisibleMapRect(geometry.mapRect, edgePadding: inset, animated: false)
         }
 
-        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            if let route = overlay as? ShortPathRouteOverlay {
-                return ShortPathRouteRenderer(overlay: route)
-            }
-            return MKOverlayRenderer(overlay: overlay)
-        }
-
-        func mapViewDidFinishLoadingMap(_ mapView: MKMapView) {
-            fit(mapView, force: true)
-            signalReady()
-        }
-
-        func mapViewDidFinishRenderingMap(_ mapView: MKMapView, fullyRendered: Bool) {
-            if fullyRendered {
-                fit(mapView, force: true)
+        func userContentController(
+            _ userContentController: WKUserContentController,
+            didReceive message: WKScriptMessage
+        ) {
+            if message.name == "mapReady" {
                 signalReady()
             }
         }
 
+        func pushRoute(to webView: WKWebView) {
+            guard pageReady, let flight else { return }
+            didSignal = false
+            let route: [String: Any] = [
+                "origin": flight.origin,
+                "destination": flight.destination,
+                "oLat": flight.originLatitude,
+                "oLng": flight.originLongitude,
+                "dLat": flight.destinationLatitude,
+                "dLng": flight.destinationLongitude,
+            ]
+            guard let data = try? JSONSerialization.data(withJSONObject: route),
+                  let json = String(data: data, encoding: .utf8) else { return }
+            webView.evaluateJavaScript(
+                "window.updateFlightMap && window.updateFlightMap([], \(json));",
+                completionHandler: nil
+            )
+        }
+
         private func signalReady() {
-            guard !didSignalReady else { return }
-            didSignalReady = true
+            guard !didSignal else { return }
+            didSignal = true
             onReady()
         }
-    }
-}
-
-final class FittingMapView: MKMapView {
-    var onLayout: ((MKMapView) -> Void)?
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        onLayout?(self)
     }
 }
