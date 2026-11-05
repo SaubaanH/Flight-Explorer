@@ -3,6 +3,7 @@ import Shared
 
 struct SavedView: View {
     @ObservedObject var model: FlightExplorerModel
+    @State private var sheetItem: SelectedFlightItem? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -26,7 +27,7 @@ struct SavedView: View {
                                 card: card,
                                 selected: model.selectedFlight?.id == card.id,
                                 saved: true,
-                                onTap: { model.select(card.id) }
+                                onTap: { openDetail(card.id) }
                             )
                         }
                     }
@@ -36,24 +37,27 @@ struct SavedView: View {
         }
         .padding(.horizontal)
         .background(RoameTheme.canvas.ignoresSafeArea())
-        .sheet(item: selectedSavedItem) { item in
+        .sheet(item: $sheetItem) { item in
             FlightDetailSheet(
                 flight: item.flight,
                 saved: true,
                 onSave: { model.save(item.flight) },
-                onRemove: { model.removeSaved(item.flight.id) },
-                onDismiss: { model.select(nil) }
+                onRemove: {
+                    model.removeSaved(item.flight.id)
+                    sheetItem = nil
+                },
+                onDismiss: { sheetItem = nil }
             )
+        }
+        .onChange(of: model.selectedFlight?.id) { _, newId in
+            if newId == nil { sheetItem = nil }
         }
     }
 
-    private var selectedSavedItem: Binding<SelectedFlightItem?> {
-        Binding(
-            get: {
-                guard let flight = model.selectedFlight, model.isSaved(flight.id) else { return nil }
-                return SelectedFlightItem(flight: flight)
-            },
-            set: { if $0 == nil { model.select(nil) } }
-        )
+    private func openDetail(_ id: String) {
+        model.select(id)
+        if let flight = model.flight(for: id) {
+            sheetItem = SelectedFlightItem(flight: flight)
+        }
     }
 }

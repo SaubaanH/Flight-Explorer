@@ -8,6 +8,8 @@ struct DiscoveryView: View {
     @State private var pane: Pane = .list
     /// Matches `FlightExplorer.LIST_PAGE_SIZE` — keep in sync.
     @State private var listLimit = 24
+    /// Local sheet item so dismissing detail keeps map selection/route.
+    @State private var sheetItem: SelectedFlightItem? = nil
 
     private enum Pane: String, CaseIterable {
         case list = "List"
@@ -85,14 +87,14 @@ struct DiscoveryView: View {
                             savedIds: model.savedIds,
                             listLimit: $listLimit,
                             pageSize: pageSize,
-                            onSelect: { model.select($0) }
+                            onSelect: openDetail
                         )
                         .onChange(of: model.resultCount) { _, _ in
                             listLimit = min(pageSize, model.flightCards.count)
                         }
                     }
                 case .map:
-                    FlightMapView(model: model)
+                    FlightMapView(model: model, onSelectFlight: openDetail)
                         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -102,25 +104,28 @@ struct DiscoveryView: View {
 
             }
         }
-        .sheet(item: selectedFlightItem) { item in
+        .sheet(item: $sheetItem) { item in
             FlightDetailSheet(
                 flight: item.flight,
                 saved: model.isSaved(item.flight.id),
                 onSave: { model.save(item.flight) },
                 onRemove: { model.removeSaved(item.flight.id) },
-                onDismiss: { model.select(nil) }
+                onDismiss: { sheetItem = nil }
             )
+        }
+        .onChange(of: model.selectedFlight?.id) { _, newId in
+            if newId == nil { sheetItem = nil }
+        }
+        .onChange(of: isSearching) { _, searching in
+            if searching { sheetItem = nil }
         }
     }
 
-    private var selectedFlightItem: Binding<SelectedFlightItem?> {
-        Binding(
-            get: {
-                guard !isSearching, let flight = model.selectedFlight else { return nil }
-                return SelectedFlightItem(flight: flight)
-            },
-            set: { if $0 == nil { model.select(nil) } }
-        )
+    private func openDetail(_ id: String) {
+        model.select(id)
+        if let flight = model.flight(for: id) {
+            sheetItem = SelectedFlightItem(flight: flight)
+        }
     }
 
     private var paneToggle: some View {

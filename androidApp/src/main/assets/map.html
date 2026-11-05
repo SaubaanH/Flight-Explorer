@@ -54,6 +54,7 @@
   let routeSourceReady = false;
   let pending = null;
   let styleIndex = 0;
+  let lastMarkerKey = '';
 
   function onMapReady() {
     statusEl.style.display = 'none';
@@ -79,6 +80,7 @@
         styleIndex += 1;
         try { map.remove(); } catch (_) {}
         routeSourceReady = false;
+        lastMarkerKey = '';
         createMap(STYLES[styleIndex]);
       } else {
         showStatus(msg);
@@ -109,25 +111,38 @@
     routeSourceReady = true;
   }
 
+  function markerKey(markers) {
+    return (markers || []).map(m => m.code + ':' + m.count + ':' + m.minPoints).join('|');
+  }
+
   function applyUpdate(markers, route) {
     if (!map) return;
-    markerObjs.forEach(m => m.remove());
-    markerObjs = [];
+    const nextKey = markerKey(markers);
+    const markersChanged = nextKey !== lastMarkerKey;
     const bounds = new maplibregl.LngLatBounds();
-    (markers || []).forEach(m => {
-      const el = document.createElement('div');
-      el.className = 'marker';
-      el.textContent = m.code + ' · ' + m.count + ' · ' + Number(m.minPoints).toLocaleString() + 'pts';
-      el.setAttribute('aria-label', m.city + ' ' + m.count + ' flights from ' + m.minPoints + ' points');
-      el.onclick = () => {
-        if (window.AndroidBridge && AndroidBridge.onMarkerClick) {
-          AndroidBridge.onMarkerClick(m.code);
-        }
-      };
-      const marker = new maplibregl.Marker({ element: el }).setLngLat([m.lng, m.lat]).addTo(map);
-      markerObjs.push(marker);
-      bounds.extend([m.lng, m.lat]);
-    });
+
+    if (markersChanged) {
+      lastMarkerKey = nextKey;
+      markerObjs.forEach(m => m.remove());
+      markerObjs = [];
+      (markers || []).forEach(m => {
+        const el = document.createElement('div');
+        el.className = 'marker';
+        el.textContent = m.code + ' · ' + m.count + ' · ' + Number(m.minPoints).toLocaleString() + 'pts';
+        el.setAttribute('aria-label', m.city + ' ' + m.count + ' flights from ' + m.minPoints + ' points');
+        el.onclick = () => {
+          if (window.AndroidBridge && AndroidBridge.onMarkerClick) {
+            AndroidBridge.onMarkerClick(m.code);
+          }
+        };
+        const marker = new maplibregl.Marker({ element: el }).setLngLat([m.lng, m.lat]).addTo(map);
+        markerObjs.push(marker);
+        bounds.extend([m.lng, m.lat]);
+      });
+    } else {
+      (markers || []).forEach(m => bounds.extend([m.lng, m.lat]));
+    }
+
     if (map.isStyleLoaded()) {
       ensureRouteLayer();
       if (route) {
@@ -144,7 +159,9 @@
         map.getSource('route').setData({ type: 'FeatureCollection', features: [] });
       }
     }
-    if (!bounds.isEmpty()) {
+
+    // Only camera-fit when the marker set changes — selection/route updates keep the view steady.
+    if (markersChanged && !bounds.isEmpty()) {
       map.fitBounds(bounds, { padding: 48, maxZoom: 5, duration: 500 });
     }
   }

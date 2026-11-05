@@ -11,6 +11,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -24,6 +29,12 @@ fun SavedScreen(
     explorer: FlightExplorer,
     modifier: Modifier = Modifier,
 ) {
+    var detailFlightId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(selectedFlight?.id) {
+        if (selectedFlight == null) detailFlightId = null
+    }
+
     Column(
         modifier
             .fillMaxSize()
@@ -51,7 +62,10 @@ fun SavedScreen(
                             flight = flight,
                             selected = flight.id == selectedFlight?.id,
                             saved = true,
-                            onClick = { explorer.selectFlight(flight.id) },
+                            onClick = {
+                                explorer.selectFlight(flight.id)
+                                detailFlightId = flight.id
+                            },
                         )
                     }
                 }
@@ -59,16 +73,20 @@ fun SavedScreen(
         }
     }
 
-    val selectedSaved = selectedFlight?.takeIf { sel ->
-        savedFlights.any { it.id == sel.id }
+    val detailFlight = detailFlightId?.let { id ->
+        savedFlights.firstOrNull { it.id == id }
+            ?: selectedFlight?.takeIf { it.id == id }
     }
-    selectedSaved?.let { flight ->
+    detailFlight?.let { flight ->
         FlightDetailSheet(
             flight = flight,
             saved = true,
             onSave = { explorer.saveFlight(flight) },
-            onRemove = { explorer.removeSaved(flight.id) },
-            onDismiss = { explorer.selectFlight(null) },
+            onRemove = {
+                explorer.removeSaved(flight.id)
+                detailFlightId = null
+            },
+            onDismiss = { detailFlightId = null },
         )
     }
 }

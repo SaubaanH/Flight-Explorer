@@ -4,6 +4,7 @@ import Shared
 
 struct FlightMapView: View {
     @ObservedObject var model: FlightExplorerModel
+    var onSelectFlight: (String) -> Void = { _ in }
 
     var body: some View {
         Map {
@@ -21,7 +22,7 @@ struct FlightMapView: View {
                                 .font(.caption2)
                         }
                         .padding(6)
-                        .background(Color.green.opacity(0.9))
+                        .background(RoameTheme.pink)
                         .foregroundStyle(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                     }
@@ -36,7 +37,7 @@ struct FlightMapView: View {
                     CLLocationCoordinate2D(latitude: flight.originLatitude, longitude: flight.originLongitude),
                     CLLocationCoordinate2D(latitude: flight.destinationLatitude, longitude: flight.destinationLongitude),
                 ])
-                .stroke(Color.green, lineWidth: 3)
+                .stroke(RoameTheme.pink, lineWidth: 3)
 
                 Marker(flight.origin, coordinate: CLLocationCoordinate2D(
                     latitude: flight.originLatitude,
@@ -59,7 +60,7 @@ struct FlightMapView: View {
                         selected: model.selectedFlight?.id == flight.id,
                         saved: model.isSaved(flight.id),
                         onTap: {
-                            model.select(flight.id)
+                            onSelectFlight(flight.id)
                             model.dismissCluster()
                         }
                     )

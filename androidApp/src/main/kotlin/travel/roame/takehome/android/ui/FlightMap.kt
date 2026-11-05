@@ -61,6 +61,7 @@ fun FlightMap(
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
                 addJavascriptInterface(bridge, "AndroidBridge")
+                tag = ""
                 webChromeClient = object : WebChromeClient() {
                     override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                         Log.d(
@@ -72,17 +73,20 @@ fun FlightMap(
                 }
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        view?.evaluateJavascript(
-                            buildUpdateJs(clustersState.value, selectedState.value),
-                            null,
-                        )
+                        val js = buildUpdateJs(clustersState.value, selectedState.value)
+                        view?.tag = js
+                        view?.evaluateJavascript(js, null)
                     }
                 }
                 loadUrl("file:///android_asset/map.html")
             }
         },
         update = { webView ->
-            webView.evaluateJavascript(buildUpdateJs(clusters, selectedFlight), null)
+            val js = buildUpdateJs(clusters, selectedFlight)
+            if (webView.tag != js) {
+                webView.tag = js
+                webView.evaluateJavascript(js, null)
+            }
         },
     )
 }

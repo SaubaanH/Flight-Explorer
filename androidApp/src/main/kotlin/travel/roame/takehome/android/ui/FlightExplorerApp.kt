@@ -58,8 +58,14 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
     val snackbar = remember { SnackbarHostState() }
 
     val filters by explorer.filters.collectAsState()
-    val filtered by explorer.filteredFlights.collectAsState()
-    val clusters by explorer.clusters.collectAsState()
+    val filteredGeneration by explorer.filteredGeneration.collectAsState()
+    // Hold filtered/clusters on generation bumps so selection/save don't rewrite the 1k list.
+    var filtered by remember { mutableStateOf(explorer.filteredFlights.value) }
+    var clusters by remember { mutableStateOf(explorer.clusters.value) }
+    LaunchedEffect(filteredGeneration) {
+        filtered = explorer.filteredFlights.value
+        clusters = explorer.clusters.value
+    }
     val selected by explorer.selectedFlight.collectAsState()
     val saved by explorer.savedFlights.collectAsState()
     val savedIds by explorer.savedIds.collectAsState()

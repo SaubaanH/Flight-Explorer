@@ -72,6 +72,17 @@ fun SharedTransitionScope.DiscoveryScreen(
     modifier: Modifier = Modifier,
 ) {
     var pane by remember { mutableStateOf(DiscoverPane.List) }
+    // Sheet visibility is local so dismissing detail keeps map selection/route.
+    var detailFlightId by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(selectedFlight?.id) {
+        if (selectedFlight == null) detailFlightId = null
+    }
+
+    fun openDetail(flight: Flight) {
+        explorer.selectFlight(flight.id)
+        detailFlightId = flight.id
+    }
 
     Box(modifier.fillMaxSize()) {
         Column(
@@ -152,7 +163,7 @@ fun SharedTransitionScope.DiscoveryScreen(
                                 flights = filteredFlights,
                                 selectedFlight = selectedFlight,
                                 savedIds = savedIds,
-                                onSelect = { explorer.selectFlight(it.id) },
+                                onSelect = ::openDetail,
                             )
                         }
                     }
@@ -176,13 +187,17 @@ fun SharedTransitionScope.DiscoveryScreen(
         }
     }
 
-    selectedFlight?.let { flight ->
+    val detailFlight = detailFlightId?.let { id ->
+        filteredFlights.firstOrNull { it.id == id }
+            ?: selectedFlight?.takeIf { it.id == id }
+    }
+    detailFlight?.let { flight ->
         FlightDetailSheet(
             flight = flight,
             saved = flight.id in savedIds,
             onSave = { explorer.saveFlight(flight) },
             onRemove = { explorer.removeSaved(flight.id) },
-            onDismiss = { explorer.selectFlight(null) },
+            onDismiss = { detailFlightId = null },
         )
     }
 
@@ -212,7 +227,7 @@ fun SharedTransitionScope.DiscoveryScreen(
                             selected = flight.id == selectedFlight?.id,
                             saved = flight.id in savedIds,
                             onClick = {
-                                explorer.selectFlight(flight.id)
+                                openDetail(flight)
                                 explorer.dismissCluster()
                             },
                         )
