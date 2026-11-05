@@ -30,7 +30,7 @@ struct FlightDetailSheet: View {
             RoutePreviewMap(flight: flight)
                 .id(flight.id)
                 .frame(height: 180)
-                .background(RoameTheme.canvas)
+                .background(Color(red: 0.94, green: 0.93, blue: 0.92))
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
