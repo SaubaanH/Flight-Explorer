@@ -25,8 +25,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,11 +45,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import kotlinx.coroutines.delay
 import travel.roame.takehome.model.Flight
 
 /**
  * Bottom sheet for a selected flight: details + route map + Save/Remove.
- * Sizes to content so Save sits just under the details (no dead space).
+ * Route sketch shows immediately; MapLibre crossfades in once tiles are ready.
  */
 @Composable
 fun FlightDetailSheet(
@@ -62,7 +67,6 @@ fun FlightDetailSheet(
             decorFitsSystemWindows = false,
         ),
     ) {
-        // Avoid the default Dialog white flash over Discover for a frame.
         val view = LocalView.current
         SideEffect {
             (view.parent as? DialogWindowProvider)?.window?.setBackgroundDrawable(
@@ -121,27 +125,7 @@ fun FlightDetailSheet(
                         color = RoameColors.Muted,
                     )
 
-                    // Instant route sketch under the WebView so the card never flashes blank
-                    // while MapLibre boots.
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(180.dp)
-                            .clip(RoameShapes.Card)
-                            .background(Color(0xFFF0EEEA)),
-                    ) {
-                        RoutePreview(
-                            flight = flight,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                        FlightMap(
-                            clusters = emptyList(),
-                            selectedFlight = flight,
-                            onClusterTap = {},
-                            modifier = Modifier.fillMaxWidth().height(180.dp),
-                            revealWhenReady = true,
-                        )
-                    }
+                    DetailRouteMap(flight = flight)
 
                     DetailRow(label = "Departure", value = flight.departureDate)
                     DetailRow(label = "Cabin", value = flight.cabin)
@@ -180,6 +164,42 @@ fun FlightDetailSheet(
                     Spacer(Modifier.height(4.dp))
                 }
             }
+        }
+    }
+}
+
+/**
+ * Instant route sketch, then the real MapLibre view after a short defer so the sheet
+ * paints immediately (spinning up a WebView on first frame caused the blank pause).
+ */
+@Composable
+private fun DetailRouteMap(flight: Flight) {
+    var showMap by remember(flight.id) { mutableStateOf(false) }
+    LaunchedEffect(flight.id) {
+        showMap = false
+        // First frame: sheet + route sketch. Then attach WebView so open isn't blocked.
+        delay(1)
+        showMap = true
+    }
+
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(180.dp)
+            .clip(RoameShapes.Card)
+            .background(Color(0xFFF0EEEA)),
+    ) {
+        RoutePreview(
+            flight = flight,
+            modifier = Modifier.fillMaxSize(),
+        )
+        if (showMap) {
+            FlightMap(
+                clusters = emptyList(),
+                selectedFlight = flight,
+                onClusterTap = {},
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 }

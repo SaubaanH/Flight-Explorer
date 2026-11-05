@@ -22,8 +22,8 @@ import travel.roame.takehome.model.DestinationCluster
 import travel.roame.takehome.model.Flight
 
 /**
- * MapLibre GL JS inside a WebView — JS/CSS bundled in assets (no CDN), Carto raster
- * basemap, destination markers (count + lowest points), selected-flight route.
+ * MapLibre GL JS inside a WebView — JS/CSS bundled in assets (no CDN),
+ * destination markers (count + lowest points), selected-flight route.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -32,13 +32,10 @@ fun FlightMap(
     selectedFlight: Flight?,
     onClusterTap: (DestinationCluster) -> Unit,
     modifier: Modifier = Modifier,
-    /** Fade in after first paint — use over a RoutePreview placeholder in the detail sheet. */
-    revealWhenReady: Boolean = false,
 ) {
     val clustersState = rememberUpdatedState(clusters)
     val selectedState = rememberUpdatedState(selectedFlight)
     val onTapState = rememberUpdatedState(onClusterTap)
-    val reveal = revealWhenReady
     val bridge = remember {
         object {
             @JavascriptInterface
@@ -57,16 +54,13 @@ fun FlightMap(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
                 setBackgroundColor(AndroidColor.parseColor("#F0EEEA"))
-                if (reveal) {
-                    setBackgroundColor(AndroidColor.TRANSPARENT)
-                    alpha = 0f
-                }
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = true
                 settings.allowContentAccess = true
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                settings.cacheMode = WebSettings.LOAD_NO_CACHE
+                // Cache MapLibre JS/CSS — LOAD_NO_CACHE made every sheet open re-parse the bundle.
+                settings.cacheMode = WebSettings.LOAD_DEFAULT
                 addJavascriptInterface(bridge, "AndroidBridge")
                 tag = ""
                 webChromeClient = object : WebChromeClient() {
@@ -82,15 +76,10 @@ fun FlightMap(
                     override fun onPageFinished(view: WebView?, url: String?) {
                         val js = buildUpdateJs(clustersState.value, selectedState.value)
                         view?.tag = js
-                        view?.evaluateJavascript(js) {
-                            if (reveal) {
-                                view.animate().alpha(1f).setDuration(120).start()
-                            }
-                        }
+                        view?.evaluateJavascript(js, null)
                     }
                 }
-                // Cache-bust so asset edits show up on reinstall.
-                loadUrl("file:///android_asset/map.html?v=5")
+                loadUrl("file:///android_asset/map.html")
             }
         },
         update = { webView ->
