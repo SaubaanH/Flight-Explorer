@@ -1,14 +1,17 @@
 import MapKit
 import Shared
 
-/// Short-path polylines for the Discover MapKit map (not the detail preview).
-/// Uses a straight short-lon arc — not a polar great-circle — so Pacific routes
-/// stay framed over the ocean instead of the Arctic.
+/// Short-path route geometry for MapKit.
+/// Straight short-lon arc (not a polar great-circle) so Pacific routes frame over
+/// the ocean instead of the Arctic.
 enum RouteMapGeometry {
     struct Route {
         let origin: CLLocationCoordinate2D
         let destination: CLLocationCoordinate2D
+        /// Normalized [-180, 180] segments for overlays.
         let polylines: [[CLLocationCoordinate2D]]
+        /// Continuous projected rect for `setVisibleMapRect` (may extend past world edges).
+        let mapRect: MKMapRect
     }
 
     static func route(for flight: Flight) -> Route {
@@ -30,7 +33,7 @@ enum RouteMapGeometry {
             longitude: flight.originLongitude + delta
         )
 
-        let n = 32
+        let n = 48
         let arc: [CLLocationCoordinate2D] = (0...n).map { i in
             let t = Double(i) / Double(n)
             return CLLocationCoordinate2D(
@@ -42,7 +45,8 @@ enum RouteMapGeometry {
         return Route(
             origin: origin,
             destination: destination,
-            polylines: splitCrossingAntimeridian(arc)
+            polylines: splitCrossingAntimeridian(arc),
+            mapRect: mapRect(coveringUnwrapped: arc)
         )
     }
 
@@ -70,5 +74,35 @@ enum RouteMapGeometry {
         while lon > 180 { lon -= 360 }
         while lon < -180 { lon += 360 }
         return CLLocationCoordinate2D(latitude: c.latitude, longitude: lon)
+    }
+
+    private static func mapRect(coveringUnwrapped points: [CLLocationCoordinate2D]) -> MKMapRect {
+        let worldW = MKMapSize.world.width
+        func mapX(_ lon: Double) -> Double { (lon + 180.0) / 360.0 * worldW }
+        func mapY(_ lat: Double) -> Double {
+            MKMapPoint(CLLocationCoordinate2D(latitude: lat, longitude: 0)).y
+        }
+
+        guard let first = points.first else { return .world }
+        var minX = mapX(first.longitude)
+        var maxX = minX
+        var minY = mapY(first.latitude)
+        var maxY = minY
+        for p in points.dropFirst() {
+            let x = mapX(p.longitude)
+            let y = mapY(p.latitude)
+            minX = min(minX, x)
+            maxX = max(maxX, x)
+            minY = min(minY, y)
+            maxY = max(maxY, y)
+        }
+
+        let midLat = (points.first!.latitude + points.last!.latitude) / 2
+        let minPoints = 800_000 / max(MKMetersPerMapPointAtLatitude(midLat), 1)
+        let width = max(maxX - minX, minPoints)
+        let height = max(maxY - minY, minPoints)
+        let cx = (minX + maxX) / 2
+        let cy = (minY + maxY) / 2
+        return MKMapRect(x: cx - width / 2, y: cy - height / 2, width: width, height: height)
     }
 }

@@ -1,9 +1,32 @@
+import MapKit
 import SwiftUI
 import Shared
 
-/// Instant detail-sheet route sketch (no WebView / tile fetch).
-/// Same short-path framing as Android `RoutePreview`.
+/// Real MapKit preview with short-path framing + pixel edge padding.
+/// Sketch underneath covers the brief tile load so the sheet never looks empty.
 struct RoutePreviewMapView: View {
+    let flight: Flight
+    @State private var mapReady = false
+
+    var body: some View {
+        ZStack {
+            RouteSketchView(flight: flight)
+                .opacity(mapReady ? 0 : 1)
+
+            RouteMapKitView(flight: flight) {
+                withAnimation(.easeOut(duration: 0.25)) { mapReady = true }
+            }
+            .opacity(mapReady ? 1 : 0)
+        }
+        .onChange(of: flight.id) { _, _ in
+            mapReady = false
+        }
+        .accessibilityLabel("Route map from \(flight.origin) to \(flight.destination)")
+    }
+}
+
+/// Instant short-path placeholder shown until MapKit tiles appear.
+struct RouteSketchView: View {
     let flight: Flight
 
     var body: some View {
@@ -11,27 +34,26 @@ struct RoutePreviewMapView: View {
             Color(red: 0.94, green: 0.93, blue: 0.92)
 
             Canvas { context, size in
-                let geometry = ShortPathLayout(flight: flight, size: size, inset: 28)
+                let layout = ShortPathLayout(flight: flight, size: size, inset: 28)
                 var glow = Path()
-                glow.move(to: geometry.origin)
-                glow.addLine(to: geometry.destination)
+                glow.move(to: layout.origin)
+                glow.addLine(to: layout.destination)
                 context.stroke(
                     glow,
                     with: .color(RoameTheme.pink.opacity(0.3)),
                     style: StrokeStyle(lineWidth: 6, lineCap: .round, dash: [10, 8])
                 )
                 var line = Path()
-                line.move(to: geometry.origin)
-                line.addLine(to: geometry.destination)
+                line.move(to: layout.origin)
+                line.addLine(to: layout.destination)
                 context.stroke(
                     line,
                     with: .color(RoameTheme.pink),
                     style: StrokeStyle(lineWidth: 3, lineCap: .round)
                 )
-                drawEndpoint(context, at: geometry.origin)
-                drawEndpoint(context, at: geometry.destination)
+                drawDot(context, at: layout.origin)
+                drawDot(context, at: layout.destination)
             }
-            .padding(4)
 
             VStack {
                 HStack {
@@ -50,15 +72,12 @@ struct RoutePreviewMapView: View {
             }
             .padding(12)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Route from \(flight.origin) to \(flight.destination)")
     }
 
-    private func drawEndpoint(_ context: GraphicsContext, at point: CGPoint) {
+    private func drawDot(_ context: GraphicsContext, at point: CGPoint) {
         let outer = CGRect(x: point.x - 6, y: point.y - 6, width: 12, height: 12)
         context.fill(Path(ellipseIn: outer), with: .color(RoameTheme.pink))
-        let inner = outer.insetBy(dx: 3.5, dy: 3.5)
-        context.fill(Path(ellipseIn: inner), with: .color(.white))
+        context.fill(Path(ellipseIn: outer.insetBy(dx: 3.5, dy: 3.5)), with: .color(.white))
     }
 }
 
@@ -84,16 +103,167 @@ private struct ShortPathLayout {
         let bottom = minLat - latPad
         let spanLng = max(right - left, 1e-6)
         let spanLat = max(top - bottom, 1e-6)
-
         let draw = CGRect(origin: .zero, size: size).insetBy(dx: inset, dy: inset)
 
         func project(lat: Double, lng: Double) -> CGPoint {
-            let x = draw.minX + CGFloat((lng - left) / spanLng) * draw.width
-            let y = draw.minY + CGFloat((top - lat) / spanLat) * draw.height
-            return CGPoint(x: x, y: y)
+            CGPoint(
+                x: draw.minX + CGFloat((lng - left) / spanLng) * draw.width,
+                y: draw.minY + CGFloat((top - lat) / spanLat) * draw.height
+            )
         }
 
         origin = project(lat: flight.originLatitude, lng: flight.originLongitude)
         destination = project(lat: flight.destinationLatitude, lng: destLng)
+    }
+}
+
+// MARK: - MapKit
+
+private struct RouteMapKitView: UIViewRepresentable {
+    let flight: Flight
+    var onReady: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onReady: onReady)
+    }
+
+    func makeUIView(context: Context) -> FittingMapView {
+        let map = FittingMapView(frame: .zero)
+        map.delegate = context.coordinator
+        map.onLayout = { [weak coordinator = context.coordinator] map in
+            coordinator?.fit(map, force: false)
+        }
+        map.isScrollEnabled = false
+        map.isZoomEnabled = false
+        map.isRotateEnabled = false
+        map.isPitchEnabled = false
+        map.isUserInteractionEnabled = false
+        map.showsCompass = false
+        map.pointOfInterestFilter = .excludingAll
+        map.overrideUserInterfaceStyle = .light
+        return map
+    }
+
+    func updateUIView(_ mapView: FittingMapView, context: Context) {
+        context.coordinator.onReady = onReady
+        let geometry = RouteMapGeometry.route(for: flight)
+        context.coordinator.geometry = geometry
+        context.coordinator.flightId = flight.id
+
+        mapView.removeOverlays(mapView.overlays)
+        mapView.removeAnnotations(mapView.annotations)
+
+        for segment in geometry.polylines {
+            var coords = segment
+            mapView.addOverlay(MKPolyline(coordinates: &coords, count: coords.count), level: .aboveRoads)
+        }
+
+        mapView.addAnnotation(EndpointAnnotation(coordinate: geometry.origin, title: flight.origin))
+        mapView.addAnnotation(EndpointAnnotation(coordinate: geometry.destination, title: flight.destination))
+        context.coordinator.fit(mapView, force: true)
+    }
+
+    final class Coordinator: NSObject, MKMapViewDelegate {
+        var geometry: RouteMapGeometry.Route?
+        var flightId: String?
+        var onReady: () -> Void
+        private var lastFittedId: String?
+        private var lastSize: CGSize = .zero
+        private var didSignalReady = false
+
+        init(onReady: @escaping () -> Void) {
+            self.onReady = onReady
+        }
+
+        func fit(_ mapView: MKMapView, force: Bool) {
+            guard let geometry else { return }
+            let size = mapView.bounds.size
+            guard size.width > 1, size.height > 1 else {
+                DispatchQueue.main.async { [weak self, weak mapView] in
+                    guard let self, let mapView else { return }
+                    self.fit(mapView, force: true)
+                }
+                return
+            }
+
+            let sizeChanged = abs(size.width - lastSize.width) > 1 || abs(size.height - lastSize.height) > 1
+            let idChanged = flightId != lastFittedId
+            guard force || sizeChanged || idChanged else { return }
+            lastSize = size
+            lastFittedId = flightId
+            if idChanged { didSignalReady = false }
+
+            let inset = UIEdgeInsets(top: 30, left: 44, bottom: 30, right: 44)
+            mapView.setVisibleMapRect(geometry.mapRect, edgePadding: inset, animated: false)
+        }
+
+        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            if let polyline = overlay as? MKPolyline {
+                let renderer = MKPolylineRenderer(polyline: polyline)
+                renderer.strokeColor = UIColor(RoameTheme.pink)
+                renderer.lineWidth = 3
+                renderer.lineCap = .round
+                renderer.lineJoin = .round
+                return renderer
+            }
+            return MKOverlayRenderer(overlay: overlay)
+        }
+
+        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            guard annotation is EndpointAnnotation else { return nil }
+            let id = "route-endpoint"
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
+                ?? MKAnnotationView(annotation: annotation, reuseIdentifier: id)
+            view.annotation = annotation
+            view.canShowCallout = false
+            view.image = Self.endpointDotImage
+            return view
+        }
+
+        func mapViewDidFinishLoadingMap(_ mapView: MKMapView) {
+            fit(mapView, force: true)
+            signalReady()
+        }
+
+        func mapViewDidFinishRenderingMap(_ mapView: MKMapView, fullyRendered: Bool) {
+            if fullyRendered { signalReady() }
+        }
+
+        private func signalReady() {
+            guard !didSignalReady else { return }
+            didSignalReady = true
+            onReady()
+        }
+
+        private static let endpointDotImage: UIImage = {
+            let size = CGSize(width: 14, height: 14)
+            let renderer = UIGraphicsImageRenderer(size: size)
+            return renderer.image { ctx in
+                let rect = CGRect(origin: .zero, size: size).insetBy(dx: 1, dy: 1)
+                UIColor.white.setFill()
+                ctx.cgContext.fillEllipse(in: rect)
+                UIColor(RoameTheme.pink).setFill()
+                ctx.cgContext.fillEllipse(in: rect.insetBy(dx: 2.5, dy: 2.5))
+            }
+        }()
+    }
+}
+
+private final class EndpointAnnotation: NSObject, MKAnnotation {
+    dynamic var coordinate: CLLocationCoordinate2D
+    let title: String?
+
+    init(coordinate: CLLocationCoordinate2D, title: String) {
+        self.coordinate = coordinate
+        self.title = title
+    }
+}
+
+final class FittingMapView: MKMapView {
+    var onLayout: ((MKMapView) -> Void)?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?(self)
     }
 }
