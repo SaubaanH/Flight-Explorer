@@ -46,6 +46,14 @@ final class FlightExplorerModel: ObservableObject {
     }
 
     private func apply(_ snap: FlightUiSnapshot) {
+        // Status first so the banner clears even if bridging a large flight list is slow.
+        let kind = snap.status.kind
+        isLoading = kind == "loading"
+        isOfflineStale = kind == "offline_stale"
+        isError = kind == "error"
+        errorMessage = snap.status.errorMessageOrNull ?? ""
+        saveError = snap.saveError
+
         let filters = snap.filters
         dateFrom = filters.dateFrom
         dateTo = filters.dateTo
@@ -64,13 +72,6 @@ final class FlightExplorerModel: ObservableObject {
         savedIds = Set(snap.savedIds)
         browsingCluster = snap.browsingCluster
         resultCount = filteredFlights.count
-        saveError = snap.saveError
-
-        let kind = snap.status.kind
-        isLoading = kind == "loading"
-        isOfflineStale = kind == "offline_stale"
-        isError = kind == "error"
-        errorMessage = snap.status.errorMessageOrNull ?? ""
     }
 
     func refresh() { explorer.refresh() }
