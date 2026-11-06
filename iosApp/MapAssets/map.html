@@ -45,25 +45,25 @@
     background:#E83A6F; border:2px solid #fff;
     box-shadow:0 1px 4px rgba(0,0,0,.3);
   }
-  /* Teardrop pin for route ends that don't already have a destination chip. */
-  .pin {
-    width: 18px;
-    height: 18px;
-    margin-top: -6px;
-    background: #E83A6F;
-    border: 2px solid #fff;
-    border-radius: 50% 50% 50% 0;
-    transform: rotate(-45deg);
-    box-shadow: 0 2px 6px rgba(0,0,0,.28);
+  /* Classic SVG map pin for route ends without a destination chip. */
+  .pin-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.28));
   }
-  .pin::after {
-    content: '';
-    position: absolute;
-    left: 4px; top: 4px;
-    width: 6px; height: 6px;
-    border-radius: 50%;
+  .pin-wrap svg {
+    display: block;
+  }
+  .pin-code {
+    margin-top: -2px;
+    padding: 2px 6px;
+    border-radius: 8px;
     background: #fff;
-    transform: none;
+    color: #E83A6F;
+    font: 700 10px/1.2 -apple-system, BlinkMacSystemFont, sans-serif;
+    border: 1px solid rgba(232,58,111,.25);
   }
 </style>
 </head>
@@ -211,6 +211,22 @@
     ).join('|');
   }
 
+  function makeRoutePin(code) {
+    const el = document.createElement('div');
+    el.className = 'pin-wrap';
+    el.title = code;
+    el.setAttribute('aria-label', code);
+    el.innerHTML =
+      '<svg width="22" height="32" viewBox="0 0 24 36" aria-hidden="true">' +
+        '<path fill="#E83A6F" stroke="#ffffff" stroke-width="1.5" ' +
+          'd="M12 1.5C6.7 1.5 2.5 5.7 2.5 11c0 7.2 9.5 23 9.5 23s9.5-15.8 9.5-23C21.5 5.7 17.3 1.5 12 1.5z"/>' +
+        '<circle cx="12" cy="11" r="3.6" fill="#ffffff"/>' +
+      '</svg>' +
+      '<span class="pin-code"></span>';
+    el.querySelector('.pin-code').textContent = code;
+    return el;
+  }
+
   function styleMarkers(emphasis) {
     const codes = new Set(((emphasis && emphasis.codes) || []).map(c => String(c).toUpperCase()));
     const focus = emphasis && emphasis.focus ? String(emphasis.focus).toUpperCase() : '';
@@ -341,12 +357,8 @@
               if (!end.code || pinned.has(end.code) || markerCodes.has(end.code)) return;
               if (endpointObjs.length >= maxPins) return;
               pinned.add(end.code);
-              const el = document.createElement('div');
-              el.className = 'pin';
-              el.title = end.code;
-              el.setAttribute('aria-label', end.code);
               endpointObjs.push(
-                new maplibregl.Marker({ element: el, anchor: 'bottom' })
+                new maplibregl.Marker({ element: makeRoutePin(end.code), anchor: 'bottom' })
                   .setLngLat([end.lng, end.lat])
                   .addTo(map)
               );
