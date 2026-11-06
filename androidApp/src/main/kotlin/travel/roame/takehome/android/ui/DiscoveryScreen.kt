@@ -19,16 +19,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import travel.roame.takehome.FlightExplorer
 import travel.roame.takehome.model.DestinationCluster
@@ -37,6 +34,8 @@ import travel.roame.takehome.model.FlightFilters
 import travel.roame.takehome.model.LoadStatus
 
 internal val SearchSharedSpring = spring<Rect>(dampingRatio = 0.85f, stiffness = 400f)
+
+private const val MaxFocusRoutes = 48
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -47,7 +46,7 @@ fun SharedTransitionScope.DiscoveryScreen(
     selectedFlight: Flight?,
     savedIds: Set<String>,
     status: LoadStatus,
-    browsingCluster: DestinationCluster?,
+    mapFocusAirport: String?,
     explorer: FlightExplorer,
     isSearching: Boolean,
     onOpenSearch: () -> Unit,
@@ -61,6 +60,14 @@ fun SharedTransitionScope.DiscoveryScreen(
             explorer.selectFlight(null)
         } else {
             explorer.selectFlight(flight.id)
+        }
+    }
+
+    val mapRoutes = remember(selectedFlight?.id, mapFocusAirport, filteredFlights) {
+        when {
+            selectedFlight != null -> listOf(selectedFlight)
+            mapFocusAirport != null -> filteredFlights.take(MaxFocusRoutes)
+            else -> emptyList()
         }
     }
 
@@ -80,7 +87,6 @@ fun SharedTransitionScope.DiscoveryScreen(
 
             AnimatedVisibility(
                 visible = !isSearching,
-                // None: let sharedBounds drive the pill→page morph (fade makes it look top-grown).
                 enter = EnterTransition.None,
                 exit = ExitTransition.None,
             ) {
@@ -106,6 +112,7 @@ fun SharedTransitionScope.DiscoveryScreen(
             ActiveFilterChips(
                 filters = filters,
                 resultCount = filteredFlights.size,
+                mapFocusAirport = mapFocusAirport,
                 onReset = onResetFilters,
                 onClearOrigin = onClearOrigin,
                 onClearDestination = onClearDestination,
@@ -118,9 +125,9 @@ fun SharedTransitionScope.DiscoveryScreen(
                     )
                 },
                 onRemoveProgram = explorer::toggleProgram,
+                onClearMapFocus = explorer::clearMapFocus,
             )
 
-            // Stacked: map always above the list (no List/Map tabs).
             Box(
                 Modifier
                     .fillMaxWidth()
@@ -129,8 +136,8 @@ fun SharedTransitionScope.DiscoveryScreen(
             ) {
                 FlightMap(
                     clusters = clusters,
-                    selectedFlight = selectedFlight,
-                    onClusterTap = explorer::openCluster,
+                    routes = mapRoutes,
+                    onClusterTap = { cluster -> explorer.toggleMapFocus(cluster.destination) },
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -155,14 +162,13 @@ fun SharedTransitionScope.DiscoveryScreen(
                             color = RoameColors.Muted,
                         )
                     }
-                    filteredFlights.isEmpty() -> {
-                        // Error with no rows — banner above already explains + Retry.
-                    }
+                    filteredFlights.isEmpty() -> Unit
                     else -> {
                         key(
                             filteredFlights.size,
                             filteredFlights.firstOrNull()?.id,
                             filteredFlights.lastOrNull()?.id,
+                            mapFocusAirport,
                         ) {
                             FlightResultList(
                                 flights = filteredFlights,
@@ -177,49 +183,6 @@ fun SharedTransitionScope.DiscoveryScreen(
                 }
             }
         }
-    }
-
-    browsingCluster?.let { cluster ->
-        AlertDialog(
-            onDismissRequest = explorer::dismissCluster,
-            containerColor = RoameColors.Surface,
-            shape = RoameShapes.Panel,
-            title = {
-                Text(
-                    "${cluster.destination} · ${cluster.flightCount} flights",
-                    fontFamily = FontFamily.Serif,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            },
-            text = {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item {
-                        Text(
-                            "From ${"%,d".format(cluster.lowestPoints)} points · ${cluster.destinationCity}",
-                            color = RoameColors.Muted,
-                        )
-                    }
-                    items(cluster.flights, key = { it.id }) { flight ->
-                        FlightRow(
-                            flight = flight,
-                            selected = flight.id == selectedFlight?.id,
-                            saved = flight.id in savedIds,
-                            onClick = {
-                                toggleSelect(flight)
-                                explorer.dismissCluster()
-                            },
-                            onSave = { explorer.saveFlight(flight) },
-                            onRemove = { explorer.removeSaved(flight.id) },
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = explorer::dismissCluster) {
-                    Text("Close", color = RoameColors.Pink, fontWeight = FontWeight.Bold)
-                }
-            },
-        )
     }
 }
 

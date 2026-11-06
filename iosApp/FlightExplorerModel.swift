@@ -27,6 +27,7 @@ final class FlightExplorerModel: ObservableObject {
     @Published var detailSheetPresented = false
     @Published var savedIds: Set<String> = []
     @Published var browsingCluster: DestinationCluster? = nil
+    @Published var mapFocusAirport: String? = nil
 
     @Published var isLoading: Bool = true
     @Published var isOfflineStale: Bool = false
@@ -47,7 +48,17 @@ final class FlightExplorerModel: ObservableObject {
             !datesAreDefault ||
             cabin != nil ||
             maxPointsEnabled ||
-            !selectedPrograms.isEmpty
+            !selectedPrograms.isEmpty ||
+            mapFocusAirport != nil
+    }
+
+    /// Routes drawn on Discover map: selected flight alone, else all focused-airport flights.
+    var mapRouteFlights: [Flight] {
+        if let selected = selectedFlight {
+            return [selected]
+        }
+        guard mapFocusAirport != nil else { return [] }
+        return Array(flightCards.prefix(48).compactMap { flightsById[$0.id] })
     }
 
     /// Full Kotlin flights for actions (save/select) — not observed by the list.
@@ -113,6 +124,7 @@ final class FlightExplorerModel: ObservableObject {
             detailSheetPresented = false
         }
         browsingCluster = snap.browsingCluster
+        mapFocusAirport = snap.mapFocusAirport
     }
 
     func refresh() { explorer.refresh() }
@@ -189,6 +201,8 @@ final class FlightExplorerModel: ObservableObject {
     }
 
     func openCluster(_ cluster: DestinationCluster) { explorer.openCluster(cluster: cluster) }
+    func toggleMapFocus(_ airport: String) { explorer.toggleMapFocus(airportCode: airport) }
+    func clearMapFocus() { explorer.clearMapFocus() }
     func dismissCluster() { explorer.dismissCluster() }
 
     func save(_ flight: Flight) { explorer.saveFlight(flight: flight) }

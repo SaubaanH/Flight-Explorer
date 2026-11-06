@@ -69,6 +69,7 @@
   let pending = null;
   let styleIndex = 0;
   let lastMarkerKey = null;
+  let lastRouteKey = null;
   let navControl = null;
 
   function onMapReady() {
@@ -164,10 +165,25 @@
     }
   }
 
-  function applyUpdate(markers, route) {
+  function normalizeRoutes(routeOrRoutes) {
+    if (!routeOrRoutes) return [];
+    return Array.isArray(routeOrRoutes) ? routeOrRoutes : [routeOrRoutes];
+  }
+
+  function routeKey(routes) {
+    return routes.map(r =>
+      (r.origin || '') + '>' + (r.destination || '') + ':' + r.oLat + ',' + r.oLng + ',' + r.dLat + ',' + r.dLng
+    ).join('|');
+  }
+
+  function applyUpdate(markers, routeOrRoutes) {
     if (!map) return;
+    const routes = normalizeRoutes(routeOrRoutes);
     const nextKey = markerKey(markers);
     const markersChanged = nextKey !== lastMarkerKey;
+    const nextRouteKey = routeKey(routes);
+    const routesChanged = nextRouteKey !== lastRouteKey;
+    lastRouteKey = nextRouteKey;
     const bounds = new maplibregl.LngLatBounds();
 
     if (markersChanged) {
@@ -195,7 +211,8 @@
     }
 
     const hasMarkers = (markers || []).length > 0;
-    setNavVisible(hasMarkers);
+    const hasRoutes = routes.length > 0;
+    setNavVisible(hasMarkers || hasRoutes);
     // Detail preview is non-interactive; discover map keeps gestures.
     if (map.dragPan) {
       if (hasMarkers) {
@@ -213,7 +230,7 @@
 
     // Route-only sheet: keep canvas hidden until fitBounds finishes (no world-flash).
     // Discover (markers): always revealed.
-    if (!hasMarkers && route) {
+    if (!hasMarkers && hasRoutes) {
       setMapRevealed(false);
     } else {
       setMapRevealed(true);
@@ -221,18 +238,25 @@
 
     if (map.isStyleLoaded()) {
       ensureRouteLayer();
-      if (route) {
+      if (hasRoutes) {
         // Straight short-path lon (NOT a polar great-circle — those frame on the Arctic).
-        const short = shortPathDest(route);
-        map.getSource('route').setData({
-          type: 'Feature',
-          geometry: {
-            type: 'LineString',
-            coordinates: [[route.oLng, route.oLat], [short.lng, short.lat]]
-          }
+        const features = routes.map(route => {
+          const short = shortPathDest(route);
+          bounds.extend([route.oLng, route.oLat]);
+          bounds.extend([short.lng, short.lat]);
+          return {
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: [[route.oLng, route.oLat], [short.lng, short.lat]]
+            }
+          };
         });
+        map.getSource('route').setData({ type: 'FeatureCollection', features: features });
 
-        if (!hasMarkers) {
+        if (!hasMarkers && routes.length === 1) {
+          const route = routes[0];
+          const short = shortPathDest(route);
           const oEl = document.createElement('div');
           oEl.className = 'endpoint';
           const dEl = document.createElement('div');
@@ -241,37 +265,26 @@
             new maplibregl.Marker({ element: oEl }).setLngLat([route.oLng, route.oLat]).addTo(map),
             new maplibregl.Marker({ element: dEl }).setLngLat([short.lng, short.lat]).addTo(map)
           );
-
-          const west = Math.min(route.oLng, short.lng);
-          const east = Math.max(route.oLng, short.lng);
-          const south = Math.min(route.oLat, short.lat);
-          const north = Math.max(route.oLat, short.lat);
-          const padLng = Math.max((east - west) * 0.12, 4);
-          const padLat = Math.max((north - south) * 0.12, 3);
-          const routeBounds = new maplibregl.LngLatBounds(
-            [west - padLng, south - padLat],
-            [east + padLng, north + padLat]
-          );
-          map.fitBounds(routeBounds, {
-            padding: { top: 28, bottom: 28, left: 36, right: 36 },
-            maxZoom: 4,
-            duration: 0
-          });
-          map.once('idle', () => {
-            setMapRevealed(true);
-            notifyMapReady();
-          });
-        } else {
-          bounds.extend([route.oLng, route.oLat]);
-          bounds.extend([route.dLng, route.dLat]);
         }
       } else if (map.getSource('route')) {
         map.getSource('route').setData({ type: 'FeatureCollection', features: [] });
       }
     }
 
-    if (hasMarkers && markersChanged && !bounds.isEmpty()) {
-      map.fitBounds(bounds, { padding: 48, maxZoom: 5, duration: 500 });
+    // Auto-frame whenever routes change (selected flight / city focus), or markers first load.
+    if (!bounds.isEmpty() && (routesChanged && hasRoutes || markersChanged && hasMarkers && !hasRoutes)) {
+      const duration = hasMarkers ? 450 : 0;
+      map.fitBounds(bounds, {
+        padding: { top: 28, bottom: 28, left: 36, right: 36 },
+        maxZoom: hasRoutes && !hasMarkers ? 4 : 5,
+        duration: duration
+      });
+      if (!hasMarkers && hasRoutes) {
+        map.once('idle', () => {
+          setMapRevealed(true);
+          notifyMapReady();
+        });
+      }
     }
   }
 

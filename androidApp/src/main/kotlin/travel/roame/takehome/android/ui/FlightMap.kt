@@ -23,18 +23,18 @@ import travel.roame.takehome.model.Flight
 
 /**
  * MapLibre GL JS inside a WebView — JS/CSS bundled in assets (no CDN),
- * destination markers (count + lowest points), selected-flight route.
+ * destination markers (count + lowest points), selected / focus routes.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun FlightMap(
     clusters: List<DestinationCluster>,
-    selectedFlight: Flight?,
+    routes: List<Flight>,
     onClusterTap: (DestinationCluster) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val clustersState = rememberUpdatedState(clusters)
-    val selectedState = rememberUpdatedState(selectedFlight)
+    val routesState = rememberUpdatedState(routes)
     val onTapState = rememberUpdatedState(onClusterTap)
     val bridge = remember {
         object {
@@ -59,7 +59,6 @@ fun FlightMap(
                 settings.allowFileAccess = true
                 settings.allowContentAccess = true
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                // Cache MapLibre JS/CSS — LOAD_NO_CACHE made every sheet open re-parse the bundle.
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
                 addJavascriptInterface(bridge, "AndroidBridge")
                 tag = ""
@@ -74,7 +73,7 @@ fun FlightMap(
                 }
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        val js = buildUpdateJs(clustersState.value, selectedState.value)
+                        val js = buildUpdateJs(clustersState.value, routesState.value)
                         view?.tag = js
                         view?.evaluateJavascript(js, null)
                     }
@@ -83,7 +82,7 @@ fun FlightMap(
             }
         },
         update = { webView ->
-            val js = buildUpdateJs(clusters, selectedFlight)
+            val js = buildUpdateJs(clusters, routes)
             if (webView.tag != js) {
                 webView.tag = js
                 webView.evaluateJavascript(js, null)
@@ -92,7 +91,7 @@ fun FlightMap(
     )
 }
 
-private fun buildUpdateJs(clusters: List<DestinationCluster>, selected: Flight?): String {
+private fun buildUpdateJs(clusters: List<DestinationCluster>, routes: List<Flight>): String {
     val markers = JSONArray()
     clusters.forEach { cluster ->
         markers.put(
@@ -105,17 +104,18 @@ private fun buildUpdateJs(clusters: List<DestinationCluster>, selected: Flight?)
                 .put("minPoints", cluster.lowestPoints),
         )
     }
-    val route = if (selected == null) {
-        "null"
-    } else {
-        JSONObject()
-            .put("origin", selected.origin)
-            .put("destination", selected.destination)
-            .put("oLat", selected.originLatitude)
-            .put("oLng", selected.originLongitude)
-            .put("dLat", selected.destinationLatitude)
-            .put("dLng", selected.destinationLongitude)
-            .toString()
+    val routesJson = JSONArray()
+    routes.forEach { flight ->
+        routesJson.put(
+            JSONObject()
+                .put("origin", flight.origin)
+                .put("destination", flight.destination)
+                .put("oLat", flight.originLatitude)
+                .put("oLng", flight.originLongitude)
+                .put("dLat", flight.destinationLatitude)
+                .put("dLng", flight.destinationLongitude),
+        )
     }
-    return "window.updateFlightMap && window.updateFlightMap($markers, $route);"
+    val routesArg = if (routesJson.length() == 0) "null" else routesJson.toString()
+    return "window.updateFlightMap && window.updateFlightMap($markers, $routesArg);"
 }

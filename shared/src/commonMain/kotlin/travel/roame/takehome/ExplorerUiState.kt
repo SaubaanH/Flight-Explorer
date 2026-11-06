@@ -20,6 +20,7 @@ data class ExplorerUiState(
     val savedIds: Set<String> = emptySet(),
     val status: LoadStatus = LoadStatus.Loading,
     val browsingCluster: DestinationCluster? = null,
+    val mapFocusAirport: String? = null,
     val saveError: String? = null,
 )
 
@@ -33,6 +34,7 @@ fun FlightExplorer.snapshot(): ExplorerUiState = ExplorerUiState(
     savedIds = savedIds.value,
     status = status.value,
     browsingCluster = browsingCluster.value,
+    mapFocusAirport = mapFocusAirport.value,
     saveError = saveError.value,
 )
 
@@ -51,11 +53,12 @@ fun FlightExplorer.watch(
                     f, flights, generation, c, selected ->
                 arrayOf(f, flights, generation, c, selected)
             },
-            combine(savedFlights, savedIds, status, browsingCluster, saveError) {
-                    saved, ids, st, browse, err ->
-                arrayOf(saved, ids, st, browse, err)
+            combine(savedFlights, savedIds, status, mapFocusAirport, saveError) {
+                    saved, ids, st, focus, err ->
+                arrayOf(saved, ids, st, focus, err)
             },
-        ) { left, right ->
+            browsingCluster,
+        ) { left, right, browse ->
             ExplorerUiState(
                 filters = left[0] as FlightFilters,
                 filteredFlights = left[1] as List<Flight>,
@@ -65,8 +68,9 @@ fun FlightExplorer.watch(
                 savedFlights = right[0] as List<Flight>,
                 savedIds = right[1] as Set<String>,
                 status = right[2] as LoadStatus,
-                browsingCluster = right[3] as DestinationCluster?,
+                mapFocusAirport = right[3] as String?,
                 saveError = right[4] as String?,
+                browsingCluster = browse as DestinationCluster?,
             )
         }.collect(onChange)
     }

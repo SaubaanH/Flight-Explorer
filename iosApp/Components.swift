@@ -241,6 +241,9 @@ struct ActiveFilterChipsView: View {
                     ForEach(Array(model.selectedPrograms).sorted(), id: \.self) { program in
                         chip(program) { model.toggleProgram(program) }
                     }
+                    if let focus = model.mapFocusAirport {
+                        chip("Map: \(focus)") { model.clearMapFocus() }
+                    }
                 }
             }
         }

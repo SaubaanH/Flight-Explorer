@@ -23,6 +23,7 @@ data class FlightUiSnapshot(
     val savedIds: Set<String>,
     val status: LoadStatus,
     val browsingCluster: DestinationCluster?,
+    val mapFocusAirport: String?,
     val saveError: String?,
 )
 
@@ -56,6 +57,7 @@ class FlightExplorerIos(
                     savedIds = state.savedIds,
                     status = state.status,
                     browsingCluster = state.browsingCluster,
+                    mapFocusAirport = state.mapFocusAirport,
                     saveError = state.saveError,
                 ),
             )

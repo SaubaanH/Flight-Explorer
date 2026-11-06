@@ -62,7 +62,7 @@ struct DiscoveryView: View {
             ActiveFilterChipsView(model: model)
 
             // Stacked: map always visible above the list (no List/Map tabs).
-            FlightMapView(model: model, onSelectFlight: toggleSelect)
+            FlightMapView(model: model)
                 .frame(height: 240)
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .overlay(

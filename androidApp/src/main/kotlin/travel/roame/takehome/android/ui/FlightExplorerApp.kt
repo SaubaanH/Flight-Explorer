@@ -71,7 +71,7 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
     val saved by explorer.savedFlights.collectAsState()
     val savedIds by explorer.savedIds.collectAsState()
     val status by explorer.status.collectAsState()
-    val browsing by explorer.browsingCluster.collectAsState()
+    val mapFocusAirport by explorer.mapFocusAirport.collectAsState()
     val saveError by explorer.saveError.collectAsState()
 
     var originText by remember { mutableStateOf(filters.originQuery) }
@@ -124,7 +124,7 @@ fun FlightExplorerApp(explorer: FlightExplorer) {
                         selectedFlight = selected,
                         savedIds = savedIds,
                         status = status,
-                        browsingCluster = browsing,
+                        mapFocusAirport = mapFocusAirport,
                         explorer = explorer,
                         isSearching = isSearching,
                         onOpenSearch = { isSearching = true },

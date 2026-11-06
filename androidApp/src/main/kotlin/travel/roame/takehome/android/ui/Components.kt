@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -175,6 +177,7 @@ fun RoamePrimaryButton(
 fun ActiveFilterChips(
     filters: FlightFilters,
     resultCount: Int,
+    mapFocusAirport: String? = null,
     onReset: () -> Unit,
     onClearOrigin: () -> Unit,
     onClearDestination: () -> Unit,
@@ -182,7 +185,9 @@ fun ActiveFilterChips(
     onClearMaxPoints: () -> Unit,
     onClearDate: () -> Unit,
     onRemoveProgram: (String) -> Unit,
+    onClearMapFocus: () -> Unit = {},
 ) {
+    val hasExtra = mapFocusAirport != null
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             Modifier.fillMaxWidth(),
@@ -195,7 +200,7 @@ fun ActiveFilterChips(
                 fontFamily = FontFamily.Serif,
                 modifier = Modifier.semantics { contentDescription = "Result count $resultCount" },
             )
-            if (!filters.isDefault()) {
+            if (!filters.isDefault() || hasExtra) {
                 TextButton(onClick = onReset) {
                     Text("Reset", color = RoameColors.Pink, fontWeight = FontWeight.Bold)
                 }
@@ -224,6 +229,9 @@ fun ActiveFilterChips(
             }
             filters.programs.forEach { program ->
                 RemovableChip(program, { onRemoveProgram(program) }, "Remove $program filter")
+            }
+            mapFocusAirport?.let { code ->
+                RemovableChip("Map: $code", onClearMapFocus, "Clear map airport filter")
             }
         }
     }
@@ -277,7 +285,11 @@ fun FlightRow(
         Column(
             Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onClick,
+                )
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {

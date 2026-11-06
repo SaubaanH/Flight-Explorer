@@ -64,6 +64,10 @@ class FlightExplorer(
     private val _browsingCluster = MutableStateFlow<DestinationCluster?>(null)
     val browsingCluster: StateFlow<DestinationCluster?> = _browsingCluster.asStateFlow()
 
+    /** Destination/origin airport tapped on the map — further filters the list; tap again to clear. */
+    private val _mapFocusAirport = MutableStateFlow<String?>(null)
+    val mapFocusAirport: StateFlow<String?> = _mapFocusAirport.asStateFlow()
+
     private var filterJob: Job? = null
     private var originDebounceJob: Job? = null
     private var destinationDebounceJob: Job? = null
@@ -144,6 +148,8 @@ class FlightExplorer(
         originDebounceJob?.cancel()
         destinationDebounceJob?.cancel()
         _filters.value = FlightFilters.defaults()
+        _mapFocusAirport.value = null
+        _browsingCluster.value = null
         recomputeFiltersImmediate()
     }
 
@@ -151,14 +157,32 @@ class FlightExplorer(
         _selectedFlightId.value = id
         syncSelectedFlight()
         if (id == null) return
-        val flight = _filteredFlights.value.firstOrNull { it.id == id }
-            ?: _allFlights.value.firstOrNull { it.id == id }
-            ?: _savedFlights.value.firstOrNull { it.id == id }
-        flight?.let { _browsingCluster.value = null }
+        _browsingCluster.value = null
+    }
+
+    /**
+     * Map marker tap: filter list to flights involving this airport and show their routes.
+     * Tapping the same airport again clears the focus.
+     */
+    fun toggleMapFocus(airportCode: String) {
+        val code = airportCode.trim().uppercase()
+        if (code.isEmpty()) return
+        val next = if (_mapFocusAirport.value == code) null else code
+        _mapFocusAirport.value = next
+        _browsingCluster.value = null
+        _selectedFlightId.value = null
+        syncSelectedFlight()
+        recomputeFiltersImmediate()
+    }
+
+    fun clearMapFocus() {
+        if (_mapFocusAirport.value == null) return
+        _mapFocusAirport.value = null
+        recomputeFiltersImmediate()
     }
 
     fun openCluster(cluster: DestinationCluster) {
-        _browsingCluster.value = hydrateCluster(cluster, _filteredFlights.value)
+        toggleMapFocus(cluster.destination)
     }
 
     fun dismissCluster() {
@@ -237,25 +261,31 @@ class FlightExplorer(
     private suspend fun recomputeFilters() {
         val filters = _filters.value
         val source = _allFlights.value
-        val filtered = withContext(computationDispatcher) {
+        val focus = _mapFocusAirport.value
+        val searchFiltered = withContext(computationDispatcher) {
             SearchFilterEngine.apply(source, filters)
         }
+        // Clusters stay on the search set so the tapped airport remains visible to toggle off.
         val clusters = withContext(computationDispatcher) {
-            MapAggregator.byDestination(filtered)
+            MapAggregator.byDestination(searchFiltered)
         }
-        _filteredFlights.value = filtered
+        val displayed = if (focus == null) {
+            searchFiltered
+        } else {
+            searchFiltered.filter {
+                it.origin.equals(focus, ignoreCase = true) ||
+                    it.destination.equals(focus, ignoreCase = true)
+            }
+        }
+        _filteredFlights.value = displayed
         _filteredGeneration.update { it + 1 }
         _clusters.value = clusters
-        val kept = SearchFilterEngine.clearSelectionIfFilteredOut(_selectedFlightId.value, filtered)
+        val kept = SearchFilterEngine.clearSelectionIfFilteredOut(_selectedFlightId.value, displayed)
         if (kept != _selectedFlightId.value) {
             _selectedFlightId.value = kept
         }
         syncSelectedFlight()
-        val browsing = _browsingCluster.value
-        if (browsing != null) {
-            val refreshed = clusters.firstOrNull { it.destination == browsing.destination }
-            _browsingCluster.value = refreshed?.let { hydrateCluster(it, filtered) }
-        }
+        _browsingCluster.value = null
     }
 
     private fun syncSelectedFlight() {
