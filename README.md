@@ -2,6 +2,13 @@
 
 Kotlin Multiplatform flight discovery app: **SwiftUI (iOS)** + **Jetpack Compose (Android)** over a shared data layer (Ktor + SQLDelight + filter/map logic). Local API serves the fixture at `fixtures/flights.json`.
 
+## Demo & submission notes
+
+- **Demo video:** [media/demo.mp4](./media/demo.mp4) — walkthrough of search, map/list selection, saves, and offline cache on both platforms.
+- **Submission report:** [SUBMISSION.md](./SUBMISSION.md) — approach, assumptions, performance tradeoffs, tests, and AI use.
+
+<video src="./media/demo.mp4" controls width="720"></video>
+
 ## One-command local API
 
 ```bash
@@ -84,6 +91,7 @@ fixtures/flights.json 1,000 fictional flights
 shared/               KMP models, filters, map aggregation, Ktor, SQLDelight, FlightExplorer facade
 androidApp/           Compose UI + MapLibre GL JS map
 iosApp/               SwiftUI UI + MapKit
+media/demo.mp4        Screen recording demo
 SUBMISSION.md         Architecture, tradeoffs, AI disclosure, checklist
 ```
 
