@@ -157,18 +157,29 @@ fun RoamePrimaryButton(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    filled: Boolean = true,
 ) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.height(44.dp),
-        shape = RoameShapes.Pill,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = RoameColors.Pink,
-            contentColor = Color.White,
-        ),
-        elevation = ButtonDefaults.buttonElevation(0.dp),
+    // Flat pill matching iOS `RoamePillButton` — avoid Material3 Button tonal remapping.
+    val bg = if (filled) RoameColors.Pink else Color.Transparent
+    val fg = if (filled) Color.White else RoameColors.Pink
+    Box(
+        modifier
+            .height(44.dp)
+            .clip(RoameShapes.Pill)
+            .background(bg)
+            .then(
+                if (filled) Modifier
+                else Modifier.border(1.dp, RoameColors.Pink, RoameShapes.Pill),
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
     ) {
-        Text(label, fontWeight = FontWeight.SemiBold)
+        Text(label, color = fg, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -379,31 +390,22 @@ fun FlightRow(
                     color = RoameColors.Muted,
                 )
                 if (saved && onRemove != null) {
-                    OutlinedButton(
+                    RoamePrimaryButton(
+                        label = "Remove",
                         onClick = onRemove,
-                        shape = RoameShapes.Pill,
-                        border = BorderStroke(1.dp, RoameColors.Pink),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = RoameColors.Pink),
+                        filled = false,
                         modifier = Modifier
                             .fillMaxWidth()
                             .semantics { contentDescription = "Remove saved flight" },
-                    ) { Text("Remove", fontWeight = FontWeight.SemiBold) }
+                    )
                 } else if (onSave != null) {
-                    Button(
+                    RoamePrimaryButton(
+                        label = "Save",
                         onClick = onSave,
-                        shape = RoameShapes.Pill,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = RoameColors.Pink,
-                            contentColor = Color.White,
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 0.dp,
-                            pressedElevation = 0.dp,
-                        ),
                         modifier = Modifier
                             .fillMaxWidth()
                             .semantics { contentDescription = "Save flight" },
-                    ) { Text("Save", fontWeight = FontWeight.Bold) }
+                    )
                 }
             }
         }
@@ -453,31 +455,22 @@ fun SelectionCard(
             color = RoameColors.Ink,
         )
         if (saved) {
-            OutlinedButton(
+            RoamePrimaryButton(
+                label = "Remove",
                 onClick = onRemove,
-                shape = RoameShapes.Pill,
-                border = BorderStroke(1.dp, RoameColors.Pink),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = RoameColors.Pink),
+                filled = false,
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = "Remove saved flight" },
-            ) { Text("Remove", fontWeight = FontWeight.SemiBold) }
+            )
         } else {
-            Button(
+            RoamePrimaryButton(
+                label = "Save",
                 onClick = onSave,
-                shape = RoameShapes.Pill,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = RoameColors.Pink,
-                    contentColor = Color.White,
-                ),
-                elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = 0.dp,
-                    pressedElevation = 0.dp,
-                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = "Save flight" },
-            ) { Text("Save", fontWeight = FontWeight.Bold) }
+            )
         }
     }
 }

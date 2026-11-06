@@ -181,28 +181,22 @@ fun FlightDetailSheet(
                         )
 
                         if (saved) {
-                            OutlinedButton(
+                            RoamePrimaryButton(
+                                label = "Remove",
                                 onClick = onRemove,
-                                shape = RoameShapes.Pill,
-                                border = BorderStroke(1.dp, RoameColors.Pink),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = RoameColors.Pink),
+                                filled = false,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .semantics { contentDescription = "Remove saved flight" },
-                            ) {
-                                Text("Remove", fontWeight = FontWeight.SemiBold)
-                            }
+                            )
                         } else {
-                            Button(
+                            RoamePrimaryButton(
+                                label = "Save",
                                 onClick = onSave,
-                                shape = RoameShapes.Pill,
-                                colors = ButtonDefaults.buttonColors(containerColor = RoameColors.Pink),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .semantics { contentDescription = "Save flight" },
-                            ) {
-                                Text("Save", fontWeight = FontWeight.SemiBold, color = RoameColors.Ink)
-                            }
+                            )
                         }
                         Spacer(Modifier.height(4.dp))
                     }
