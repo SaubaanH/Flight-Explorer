@@ -53,9 +53,23 @@ Native UIs are intentionally thin: discovery chrome, list/map, detail sheet, sav
 
 ## Tradeoffs
 
-- **Android map = WebView MapLibre JS** instead of native MapLibre SDK — faster to ship markers/labels/route without annotation-plugin churn; needs network for style/tiles (offline tiles not required).
-- **Swift bridge** uses `FlightExplorerIos` snapshots on Main rather than SKIE Flow adapters — simple and reliable for a takehome; `filteredGeneration` skips re-bridging 1k rows on selection/save.
-- Golden tests run on the **JVM** target (`:shared:jvmTest`) with the real fixture as a resource — same shared code iOS/Android use.
+**List rendering over ~1,000 flights**
+- Spec asks for a smooth list against the full fixture. Rendering every row eagerly is too heavy once selection, saves, and filters update.
+- **Choice:** windowed / paged list (page size 24) with scroll-driven load-more on both platforms; 250ms search debounce; cancel superseded filter jobs on the facade.
+- **iOS specifically:** bridge filtered flights into Swift `FlightCard` value types and only re-bridge when `filteredGeneration` bumps — selection/save don’t rebuild 1k rows.
+
+**Map performance & framing**
+- Destination markers show count + min points for the filtered set; selecting a flight draws a short-path route (not a polar great-circle).
+- **Android:** MapLibre GL JS in a WebView (no Google Maps key) — faster to ship labeled markers + polylines than fighting native annotation plugins; tiles still need network (offline tiles out of scope).
+- **iOS Discover:** MapKit for native gestures; camera fit resets before applying a new region so selection actually reframes.
+- **Discover UX:** stacked map + list (not List/Map tabs) so selection parity is obvious; city tap filters to/from that airport; selected route dims other markers instead of hiding them.
+- Clusters keep nested flight lists unloaded until opened / focused — cheaper recompute on every filter change.
+
+**Other**
+- **Cache whole catalog** after a successful fetch so offline search works on the same filter engine — not just saved rows.
+- **Swift bridge** uses `FlightExplorerIos` Main snapshots rather than SKIE Flow adapters — simpler for a takehome; generation gating above keeps it fast.
+- Golden tests on **JVM** (`:shared:jvmTest`) with the real fixture — same shared code both apps use; not a substitute for simulator/emulator checks.
+- Material3 `Button` remaps brand pink — Save uses a flat custom pill so Android matches iOS `#E83A6F`.
 
 ## Tests run
 
@@ -110,7 +124,13 @@ python3 api/serve.py &  curl localhost:8080/flights  # HTTP 200, 1000 flights
 
 ## AI use
 
-Cursor agents implemented the plan against the PDF + research notes. Verification: golden `jvmTest` (including facade tests), Android `assembleDebug` / emulator install, iOS simulator builds via Xcode, API curl smoke.
+I treated AI as a force multiplier, not a substitute for owning the design:
+
+1. **Plan + architecture** — I wrote the product/engineering plan from the PDF, then worked with Claude to turn that into a detailed PR-level architecture (shared facade, filters, cache/saved semantics, dual native UIs, local API).
+2. **First implementation** — a Cursor cloud/worker agent built the first end-to-end implementation against that plan.
+3. **My pass** — I personally drove polish and product choices beyond the bare spec (Roame branding, full-screen search morph, stacked map + list, expand-in-place selection, filter chips, opt-in points, map focus / dimming, Save color parity), helped structure and extend the shared tests, and did UI/interaction touch-ups on both platforms until the demo felt right.
+
+I can explain and modify every layer that shipped. Verification wasn’t “trust the agent”: golden `:shared:jvmTest`, Android emulator installs, iOS simulator builds, and manual offline/cache walks on both clients.
 
 ## Recording
 
