@@ -7,8 +7,6 @@ Kotlin Multiplatform flight discovery app: **SwiftUI (iOS)** + **Jetpack Compose
 - **Demo video:** [media/demo.mp4](./media/demo.mp4) — walkthrough of search, map/list selection, saves, and offline cache on both platforms.
 - **Submission report:** [SUBMISSION.md](./SUBMISSION.md) — approach, assumptions, performance tradeoffs, tests, and AI use.
 
-<video src="./media/demo.mp4" controls width="720"></video>
-
 ## One-command local API
 
 ```bash
