@@ -15,7 +15,10 @@ import androidx.compose.ui.unit.sp
 
 object RoameColors {
     val Pink = Color(0xFFE83A6F)
-    val PinkSoft = Color(0xFFFFE6EE)
+    /** Soft wash for chips / banners — matches iOS `pinkSoft` (#FFE6ED). */
+    val PinkSoft = Color(0xFFFFE6ED)
+    /** Stronger selected-card wash so selection reads like iOS. */
+    val PinkSelected = Color(0xFFFFD6E4)
     val PinkDeep = Color(0xFFC9184A)
     val Coral = Color(0xFFFF8B5C)
     val Ink = Color(0xFF1A1A1A)

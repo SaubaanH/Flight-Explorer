@@ -188,7 +188,17 @@ fun ActiveFilterChips(
     onClearMapFocus: () -> Unit = {},
 ) {
     val hasExtra = mapFocusAirport != null
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val hasChips =
+        filters.originQuery.isNotBlank() ||
+            filters.destinationQuery.isNotBlank() ||
+            filters.dateFrom != FlightFilters.DEFAULT_DATE_FROM ||
+            filters.dateTo != FlightFilters.DEFAULT_DATE_TO ||
+            filters.cabin != null ||
+            filters.maxPoints != null ||
+            filters.programs.isNotEmpty() ||
+            mapFocusAirport != null
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -201,37 +211,49 @@ fun ActiveFilterChips(
                 modifier = Modifier.semantics { contentDescription = "Result count $resultCount" },
             )
             if (!filters.isDefault() || hasExtra) {
-                TextButton(onClick = onReset) {
-                    Text("Reset", color = RoameColors.Pink, fontWeight = FontWeight.Bold)
-                }
+                Text(
+                    "Reset",
+                    color = RoameColors.Pink,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onReset,
+                        )
+                        .padding(vertical = 2.dp, horizontal = 4.dp),
+                )
             }
         }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (filters.originQuery.isNotBlank()) {
-                RemovableChip("From: ${filters.originQuery.trim()}", onClearOrigin, "Clear origin filter")
-            }
-            if (filters.destinationQuery.isNotBlank()) {
-                RemovableChip("To: ${filters.destinationQuery.trim()}", onClearDestination, "Clear destination filter")
-            }
-            if (filters.dateFrom != FlightFilters.DEFAULT_DATE_FROM ||
-                filters.dateTo != FlightFilters.DEFAULT_DATE_TO
+        if (hasChips) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                RemovableChip("${filters.dateFrom} → ${filters.dateTo}", onClearDate, "Clear date filter")
-            }
-            filters.cabin?.let { cabin ->
-                RemovableChip(cabin, onClearCabin, "Clear cabin filter")
-            }
-            filters.maxPoints?.let { max ->
-                RemovableChip("≤ ${"%,d".format(max)} pts", onClearMaxPoints, "Clear points filter")
-            }
-            filters.programs.forEach { program ->
-                RemovableChip(program, { onRemoveProgram(program) }, "Remove $program filter")
-            }
-            mapFocusAirport?.let { code ->
-                RemovableChip("Map: $code", onClearMapFocus, "Clear map airport filter")
+                if (filters.originQuery.isNotBlank()) {
+                    RemovableChip("From: ${filters.originQuery.trim()}", onClearOrigin, "Clear origin filter")
+                }
+                if (filters.destinationQuery.isNotBlank()) {
+                    RemovableChip("To: ${filters.destinationQuery.trim()}", onClearDestination, "Clear destination filter")
+                }
+                if (filters.dateFrom != FlightFilters.DEFAULT_DATE_FROM ||
+                    filters.dateTo != FlightFilters.DEFAULT_DATE_TO
+                ) {
+                    RemovableChip("${filters.dateFrom} → ${filters.dateTo}", onClearDate, "Clear date filter")
+                }
+                filters.cabin?.let { cabin ->
+                    RemovableChip(cabin, onClearCabin, "Clear cabin filter")
+                }
+                filters.maxPoints?.let { max ->
+                    RemovableChip("≤ ${"%,d".format(max)} pts", onClearMaxPoints, "Clear points filter")
+                }
+                filters.programs.forEach { program ->
+                    RemovableChip(program, { onRemoveProgram(program) }, "Remove $program filter")
+                }
+                mapFocusAirport?.let { code ->
+                    RemovableChip("Map: $code", onClearMapFocus, "Clear map airport filter")
+                }
             }
         }
     }
@@ -243,15 +265,15 @@ private fun RemovableChip(label: String, onClick: () -> Unit, clearDescription: 
         onClick = onClick,
         shape = RoameShapes.Pill,
         color = RoameColors.PinkSoft,
-        border = BorderStroke(1.dp, RoameColors.Pink.copy(alpha = 0.2f)),
+        border = BorderStroke(1.dp, RoameColors.Pink.copy(alpha = 0.22f)),
         modifier = Modifier.semantics { contentDescription = clearDescription },
     ) {
         Row(
-            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(label, style = MaterialTheme.typography.labelLarge, color = RoameColors.PinkDeep)
+            Text(label, style = MaterialTheme.typography.labelLarge, color = RoameColors.Pink)
             Icon(Icons.Default.Close, contentDescription = null, tint = RoameColors.Pink, modifier = Modifier.size(14.dp))
         }
     }
@@ -271,10 +293,10 @@ fun FlightRow(
         Modifier
             .fillMaxWidth()
             .clip(RoameShapes.Card)
-            .background(if (selected) RoameColors.PinkSoft else RoameColors.Surface)
+            .background(if (selected) RoameColors.PinkSelected else RoameColors.Surface)
             .border(
                 1.dp,
-                if (selected) RoameColors.Pink.copy(alpha = 0.45f) else RoameColors.Hairline,
+                if (selected) RoameColors.Pink.copy(alpha = 0.40f) else RoameColors.Hairline,
                 RoameShapes.Card,
             )
             .semantics {
@@ -370,11 +392,18 @@ fun FlightRow(
                     Button(
                         onClick = onSave,
                         shape = RoameShapes.Pill,
-                        colors = ButtonDefaults.buttonColors(containerColor = RoameColors.Pink),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = RoameColors.Pink,
+                            contentColor = Color.White,
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 0.dp,
+                            pressedElevation = 0.dp,
+                        ),
                         modifier = Modifier
                             .fillMaxWidth()
                             .semantics { contentDescription = "Save flight" },
-                    ) { Text("Save", fontWeight = FontWeight.SemiBold) }
+                    ) { Text("Save", fontWeight = FontWeight.Bold) }
                 }
             }
         }
@@ -437,11 +466,18 @@ fun SelectionCard(
             Button(
                 onClick = onSave,
                 shape = RoameShapes.Pill,
-                colors = ButtonDefaults.buttonColors(containerColor = RoameColors.Pink),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RoameColors.Pink,
+                    contentColor = Color.White,
+                ),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 0.dp,
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .semantics { contentDescription = "Save flight" },
-            ) { Text("Save", fontWeight = FontWeight.SemiBold) }
+            ) { Text("Save", fontWeight = FontWeight.Bold) }
         }
     }
 }
