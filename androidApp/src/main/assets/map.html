@@ -45,6 +45,26 @@
     background:#E83A6F; border:2px solid #fff;
     box-shadow:0 1px 4px rgba(0,0,0,.3);
   }
+  /* Teardrop pin for route ends that don't already have a destination chip. */
+  .pin {
+    width: 18px;
+    height: 18px;
+    margin-top: -6px;
+    background: #E83A6F;
+    border: 2px solid #fff;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    box-shadow: 0 2px 6px rgba(0,0,0,.28);
+  }
+  .pin::after {
+    content: '';
+    position: absolute;
+    left: 4px; top: 4px;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #fff;
+    transform: none;
+  }
 </style>
 </head>
 <body>
@@ -290,6 +310,12 @@
         });
         map.getSource('route').setData({ type: 'FeatureCollection', features: features });
 
+        const markerCodes = new Set(
+          (markers || []).map(m => String(m.code || '').toUpperCase()).filter(Boolean)
+        );
+        // Detail sheet (no chips): simple endpoint dots.
+        // Discover: pin any route end that doesn't already have a destination chip
+        // (origins almost always; some destinations if missing from clusters).
         if (!hasMarkers && routes.length === 1) {
           const route = routes[0];
           const short = shortPathDest(route);
@@ -301,6 +327,31 @@
             new maplibregl.Marker({ element: oEl }).setLngLat([route.oLng, route.oLat]).addTo(map),
             new maplibregl.Marker({ element: dEl }).setLngLat([short.lng, short.lat]).addTo(map)
           );
+        } else if (hasMarkers && hasRoutes) {
+          const pinned = new Set();
+          const maxPins = routes.length === 1 ? 4 : 24;
+          routes.forEach(route => {
+            if (endpointObjs.length >= maxPins) return;
+            const short = shortPathDest(route);
+            const ends = [
+              { code: String(route.origin || '').toUpperCase(), lng: route.oLng, lat: route.oLat },
+              { code: String(route.destination || '').toUpperCase(), lng: short.lng, lat: short.lat },
+            ];
+            ends.forEach(end => {
+              if (!end.code || pinned.has(end.code) || markerCodes.has(end.code)) return;
+              if (endpointObjs.length >= maxPins) return;
+              pinned.add(end.code);
+              const el = document.createElement('div');
+              el.className = 'pin';
+              el.title = end.code;
+              el.setAttribute('aria-label', end.code);
+              endpointObjs.push(
+                new maplibregl.Marker({ element: el, anchor: 'bottom' })
+                  .setLngLat([end.lng, end.lat])
+                  .addTo(map)
+              );
+            });
+          });
         }
       } else if (map.getSource('route')) {
         map.getSource('route').setData({ type: 'FeatureCollection', features: [] });
