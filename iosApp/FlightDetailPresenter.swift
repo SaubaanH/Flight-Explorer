@@ -1,13 +1,14 @@
 import SwiftUI
 import Shared
 
-/// Sheet timing — long enough for MapLibre fit on tap, snappier than before.
 enum FlightDetailPresentation {
     static let openAnimation: Animation = .spring(duration: 0.42, bounce: 0.04)
     static let dismissAnimation: Animation = .spring(duration: 0.32, bounce: 0.0)
+    /// Soft scrim — matched with Android detail sheet.
+    static let scrimOpacity: Double = 0.28
 }
 
-/// Custom bottom sheet drawn above the TabView so Discover/Saved tabs stay under it.
+/// Custom bottom sheet above the TabView. Scrim fades; panel slides up (like Android).
 struct FlightDetailOverlay: View {
     let flight: Flight
     let saved: Bool
@@ -17,10 +18,11 @@ struct FlightDetailOverlay: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            Color.black.opacity(0.4)
+            Color.black.opacity(FlightDetailPresentation.scrimOpacity)
                 .ignoresSafeArea()
                 .onTapGesture(perform: onDismiss)
                 .accessibilityLabel("Dismiss flight details")
+                .transition(.opacity)
 
             FlightDetailSheet(
                 flight: flight,

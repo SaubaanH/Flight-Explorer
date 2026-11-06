@@ -59,6 +59,8 @@ import travel.roame.takehome.model.Flight
 
 private val SheetOpenMillis = 420
 private val SheetCloseMillis = 300
+/** Soft scrim — matched with iOS `FlightDetailPresentation.scrimOpacity`. */
+private val ScrimAlpha = 0.28f
 
 /**
  * Bottom sheet for a selected flight: details + route map + Save/Remove.
@@ -103,7 +105,7 @@ fun FlightDetailSheet(
                 Box(
                     Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.4f))
+                        .background(Color.Black.copy(alpha = ScrimAlpha))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,

@@ -24,25 +24,44 @@ struct RoameStarterApp: App {
                 .tint(RoameTheme.pink)
                 .background(RoameTheme.canvas.ignoresSafeArea())
 
-                // Above the tab bar — local overlays inside each tab sat under it.
-                if let flight = model.selectedFlight {
-                    FlightDetailOverlay(
-                        flight: flight,
-                        saved: model.isSaved(flight.id),
-                        onSave: { model.save(flight) },
-                        onRemove: {
-                            model.removeSaved(flight.id)
-                            withAnimation(FlightDetailPresentation.dismissAnimation) {
-                                model.select(nil)
-                            }
-                        },
-                        onDismiss: {
+                // Separate inserts so scrim can fade while the panel slides up.
+                if model.selectedFlight != nil {
+                    Color.black.opacity(FlightDetailPresentation.scrimOpacity)
+                        .ignoresSafeArea()
+                        .onTapGesture {
                             withAnimation(FlightDetailPresentation.dismissAnimation) {
                                 model.select(nil)
                             }
                         }
-                    )
-                    .transition(.opacity)
+                        .accessibilityLabel("Dismiss flight details")
+                        .transition(.opacity)
+                        .zIndex(99)
+                }
+
+                if let flight = model.selectedFlight {
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        FlightDetailSheet(
+                            flight: flight,
+                            saved: model.isSaved(flight.id),
+                            onSave: { model.save(flight) },
+                            onRemove: {
+                                model.removeSaved(flight.id)
+                                withAnimation(FlightDetailPresentation.dismissAnimation) {
+                                    model.select(nil)
+                                }
+                            },
+                            onDismiss: {
+                                withAnimation(FlightDetailPresentation.dismissAnimation) {
+                                    model.select(nil)
+                                }
+                            }
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+                        .shadow(color: .black.opacity(0.12), radius: 24, y: -4)
+                    }
+                    .ignoresSafeArea(edges: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(100)
                 }
             }
