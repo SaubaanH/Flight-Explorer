@@ -30,11 +30,14 @@ import travel.roame.takehome.model.Flight
 fun FlightMap(
     clusters: List<DestinationCluster>,
     routes: List<Flight>,
+    emphasizedAirports: Set<String>,
+    focusAirport: String?,
     onClusterTap: (DestinationCluster) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val clustersState = rememberUpdatedState(clusters)
     val routesState = rememberUpdatedState(routes)
+    val emphasisState = rememberUpdatedState(emphasizedAirports to focusAirport)
     val onTapState = rememberUpdatedState(onClusterTap)
     val bridge = remember {
         object {
@@ -73,7 +76,8 @@ fun FlightMap(
                 }
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
-                        val js = buildUpdateJs(clustersState.value, routesState.value)
+                        val (codes, focus) = emphasisState.value
+                        val js = buildUpdateJs(clustersState.value, routesState.value, codes, focus)
                         view?.tag = js
                         view?.evaluateJavascript(js, null)
                     }
@@ -82,7 +86,7 @@ fun FlightMap(
             }
         },
         update = { webView ->
-            val js = buildUpdateJs(clusters, routes)
+            val js = buildUpdateJs(clusters, routes, emphasizedAirports, focusAirport)
             if (webView.tag != js) {
                 webView.tag = js
                 webView.evaluateJavascript(js, null)
@@ -91,7 +95,12 @@ fun FlightMap(
     )
 }
 
-private fun buildUpdateJs(clusters: List<DestinationCluster>, routes: List<Flight>): String {
+private fun buildUpdateJs(
+    clusters: List<DestinationCluster>,
+    routes: List<Flight>,
+    emphasizedAirports: Set<String>,
+    focusAirport: String?,
+): String {
     val markers = JSONArray()
     clusters.forEach { cluster ->
         markers.put(
@@ -117,5 +126,11 @@ private fun buildUpdateJs(clusters: List<DestinationCluster>, routes: List<Fligh
         )
     }
     val routesArg = if (routesJson.length() == 0) "null" else routesJson.toString()
-    return "window.updateFlightMap && window.updateFlightMap($markers, $routesArg);"
+    val codes = JSONArray()
+    emphasizedAirports.forEach { codes.put(it) }
+    val emphasis = JSONObject()
+        .put("codes", codes)
+        .put("focus", focusAirport)
+        .toString()
+    return "window.updateFlightMap && window.updateFlightMap($markers, $routesArg, $emphasis);"
 }

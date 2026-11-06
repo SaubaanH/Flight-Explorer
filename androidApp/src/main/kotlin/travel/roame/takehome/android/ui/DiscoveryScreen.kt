@@ -71,6 +71,17 @@ fun SharedTransitionScope.DiscoveryScreen(
         }
     }
 
+    val emphasizedAirports = remember(selectedFlight?.id, mapFocusAirport) {
+        when {
+            selectedFlight != null -> setOf(
+                selectedFlight.origin.uppercase(),
+                selectedFlight.destination.uppercase(),
+            )
+            mapFocusAirport != null -> setOf(mapFocusAirport.uppercase())
+            else -> emptySet()
+        }
+    }
+
     Box(modifier.fillMaxSize()) {
         Column(
             Modifier
@@ -137,6 +148,8 @@ fun SharedTransitionScope.DiscoveryScreen(
                 FlightMap(
                     clusters = clusters,
                     routes = mapRoutes,
+                    emphasizedAirports = emphasizedAirports,
+                    focusAirport = mapFocusAirport.takeIf { selectedFlight == null },
                     onClusterTap = { cluster -> explorer.toggleMapFocus(cluster.destination) },
                     modifier = Modifier.fillMaxSize(),
                 )
