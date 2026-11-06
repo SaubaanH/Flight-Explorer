@@ -2,8 +2,9 @@ import SwiftUI
 import Shared
 
 enum FlightDetailPresentation {
-    static let openAnimation: Animation = .spring(duration: 0.42, bounce: 0.04)
-    static let dismissAnimation: Animation = .spring(duration: 0.32, bounce: 0.0)
+    /// Material FastOutSlowIn @ 420ms — same as Android `tween(SheetOpenMillis)`.
+    static let openAnimation: Animation = .timingCurve(0.4, 0.0, 0.2, 1.0, duration: 0.42)
+    static let dismissAnimation: Animation = .timingCurve(0.4, 0.0, 1.0, 1.0, duration: 0.30)
     /// Soft scrim — matched with Android detail sheet.
     static let scrimOpacity: Double = 0.28
 }

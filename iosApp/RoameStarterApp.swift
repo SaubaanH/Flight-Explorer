@@ -65,7 +65,8 @@ struct RoameStarterApp: App {
                     .zIndex(100)
                 }
             }
-            .animation(FlightDetailPresentation.openAnimation, value: model.selectedFlight?.id)
+            // Drive open/dismiss with the same curve; avoid stacking a second implicit animation.
+            .animation(FlightDetailPresentation.openAnimation, value: model.selectedFlight?.id == nil)
             .task {
                 SharedRouteMapLibre.shared.prewarm()
             }
