@@ -53,23 +53,31 @@ Native UIs are intentionally thin: discovery chrome, list/map, detail sheet, sav
 
 ## Tradeoffs
 
-**List rendering over ~1,000 flights**
-- Spec asks for a smooth list against the full fixture. Rendering every row eagerly is too heavy once selection, saves, and filters update.
-- **Choice:** windowed / paged list (page size 24) with scroll-driven load-more on both platforms; 250ms search debounce; cancel superseded filter jobs on the facade.
-- **iOS specifically:** bridge filtered flights into Swift `FlightCard` value types and only re-bridge when `filteredGeneration` bumps — selection/save don’t rebuild 1k rows.
+**List / filter performance (~1,000 flights)**
+- Rendering and diffing every filtered row on every selection or save is too expensive once the list is large.
+- **Windowed list** (page size 24, scroll-driven load-more) on both platforms — UI only materializes what’s on screen; the facade still holds the full filtered set for count + map.
+- **250ms debounce** on origin/destination text + cancel superseded filter jobs on `FlightExplorer` so typing doesn’t queue N full scans of the catalog.
+- **Generation gating:** Android and iOS only rebuild the bridged/Compose list when `filteredGeneration` changes — selection and save update IDs without rewriting ~1k rows.
 
-**Map performance & framing**
-- Destination markers show count + min points for the filtered set; selecting a flight draws a short-path route (not a polar great-circle).
-- **Android:** MapLibre GL JS in a WebView (no Google Maps key) — faster to ship labeled markers + polylines than fighting native annotation plugins; tiles still need network (offline tiles out of scope).
-- **iOS Discover:** MapKit for native gestures; camera fit resets before applying a new region so selection actually reframes.
-- **Discover UX:** stacked map + list (not List/Map tabs) so selection parity is obvious; city tap filters to/from that airport; selected route dims other markers instead of hiding them.
-- Clusters keep nested flight lists unloaded until opened / focused — cheaper recompute on every filter change.
+**Map aggregation**
+- Markers are destination clusters (`count` + min points), not one annotation per flight — keeps marker count closer to airports than to 1k rows.
+- Nested flight lists stay unloaded until a cluster is focused/opened so every filter change doesn’t rebuild heavy payloads.
+- Route drawing uses a short-path polyline (not a polar great-circle) — cheaper geometry, good enough for takehome framing.
 
-**Other**
-- **Cache whole catalog** after a successful fetch so offline search works on the same filter engine — not just saved rows.
-- **Swift bridge** uses `FlightExplorerIos` Main snapshots rather than SKIE Flow adapters — simpler for a takehome; generation gating above keeps it fast.
-- Golden tests on **JVM** (`:shared:jvmTest`) with the real fixture — same shared code both apps use; not a substitute for simulator/emulator checks.
-- Material3 `Button` remaps brand pink — Save uses a flat custom pill so Android matches iOS `#E83A6F`.
+**Android map: MapLibre GL JS in a WebView**
+- Avoids a Google Maps key and fights less with native annotation plugins for labeled markers + polylines.
+- Cost: tiles still need network (offline tiles out of scope per PDF); WebView is heavier than a pure native map SDK.
+- Detail sheet uses a lightweight Compose `RoutePreview` instead of a second WebView so we don’t pay that cost twice.
+
+**Persistence / offline**
+- **Cache the whole catalog** after a successful fetch (not only saved rows) so offline search/filters hit the same engine as online — more disk than a saved-only store, but required for the PDF offline-search behavior.
+- SQLDelight writes are serialized behind a mutex on a background dispatcher so network/DB never block the UI thread.
+
+**iOS bridge**
+- `FlightExplorerIos` Main-thread snapshots instead of SKIE Flow adapters — less bridge machinery for a takehome; generation gating above keeps snapshot churn low when selection/save fire often.
+
+**Testing**
+- Golden tests on **JVM** (`:shared:jvmTest`) against the real fixture cover filter rules, aggregation, cache/saved, and facade debounce — fast and shared. Not a substitute for emulator/simulator checks of scroll, map, and offline UX.
 
 ## Tests run
 
