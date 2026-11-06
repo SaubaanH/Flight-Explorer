@@ -4,6 +4,7 @@ import Shared
 /// Pure-Swift row model so SwiftUI can scroll without crossing the KMP bridge per property.
 struct FlightCard: Identifiable, Equatable, Hashable {
     let id: String
+    let originCity: String
     let destinationCity: String
     let origin: String
     let destination: String
@@ -14,6 +15,7 @@ struct FlightCard: Identifiable, Equatable, Hashable {
 
     init(_ flight: Flight) {
         id = flight.id
+        originCity = flight.originCity
         destinationCity = flight.destinationCity
         origin = flight.origin
         destination = flight.destination

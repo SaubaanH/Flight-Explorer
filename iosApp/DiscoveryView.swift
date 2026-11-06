@@ -5,13 +5,8 @@ struct DiscoveryView: View {
     @ObservedObject var model: FlightExplorerModel
     @Namespace private var searchNS
     @State private var isSearching = false
-    @State private var pane: Pane = .list
     /// Matches `FlightExplorer.LIST_PAGE_SIZE` — keep in sync.
     @State private var listLimit = 24
-    private enum Pane: String, CaseIterable {
-        case list = "List"
-        case map = "Map"
-    }
 
     private let pageSize = 24
 
@@ -36,7 +31,7 @@ struct DiscoveryView: View {
             }
         }
         .background(RoameTheme.canvas.ignoresSafeArea())
-        .toolbar(isSearching || model.selectedFlight != nil ? .hidden : .automatic, for: .tabBar)
+        .toolbar(isSearching || model.detailSheetPresented ? .hidden : .automatic, for: .tabBar)
         .animation(searchSpring, value: isSearching)
     }
 
@@ -66,76 +61,53 @@ struct DiscoveryView: View {
 
             ActiveFilterChipsView(model: model)
 
-            paneToggle
+            // Stacked: map always visible above the list (no List/Map tabs).
+            FlightMapView(model: model, onSelectFlight: toggleSelect)
+                .frame(height: 240)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(RoameTheme.hairline, lineWidth: 1)
+                )
 
-            ZStack(alignment: .bottom) {
-                switch pane {
-                case .list:
-                    if model.flightCards.isEmpty && !model.isLoading && !model.isError {
-                        let emptyCopy = model.isEmptyResponse
-                            ? "No flights returned from the server."
-                            : "No flights match these filters."
-                        ContentUnavailableView(emptyCopy, systemImage: "airplane")
-                            .foregroundStyle(RoameTheme.muted)
-                    } else {
-                        WindowedFlightList(
-                            cards: model.flightCards,
-                            selectedId: model.selectedFlight?.id,
-                            savedIds: model.savedIds,
-                            listLimit: $listLimit,
-                            pageSize: pageSize,
-                            onSelect: openDetail
-                        )
-                        .onChange(of: model.resultCount) { _, _ in
-                            listLimit = min(pageSize, model.flightCards.count)
-                        }
+            ZStack {
+                if model.flightCards.isEmpty && !model.isLoading && !model.isError {
+                    let emptyCopy = model.isEmptyResponse
+                        ? "No flights returned from the server."
+                        : "No flights match these filters."
+                    ContentUnavailableView(emptyCopy, systemImage: "airplane")
+                        .foregroundStyle(RoameTheme.muted)
+                } else {
+                    WindowedFlightList(
+                        cards: model.flightCards,
+                        selectedId: model.selectedFlight?.id,
+                        savedIds: model.savedIds,
+                        listLimit: $listLimit,
+                        pageSize: pageSize,
+                        onSelect: toggleSelect,
+                        onSave: { id in model.save(cardId: id) },
+                        onRemove: { id in model.removeSaved(id) }
+                    )
+                    .onChange(of: model.resultCount) { _, _ in
+                        listLimit = min(pageSize, model.flightCards.count)
                     }
-                case .map:
-                    FlightMapView(model: model, onSelectFlight: openDetail)
-                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .stroke(RoameTheme.hairline, lineWidth: 1)
-                        )
                 }
-
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onChange(of: isSearching) { _, searching in
             if searching { model.select(nil) }
         }
     }
 
-    private func openDetail(_ id: String) {
-        guard let flight = model.flight(for: id) else { return }
-        // Fit the route now — before the sheet animation starts.
-        SharedRouteMapLibre.shared.prepare(flight)
-        withAnimation(FlightDetailPresentation.openAnimation) {
-            model.select(id)
-        }
-    }
-
-    private var paneToggle: some View {
-        HStack(spacing: 4) {
-            ForEach(Pane.allCases, id: \.self) { option in
-                Button {
-                    pane = option
-                } label: {
-                    Text(option.rawValue)
-                        .font(.subheadline.weight(pane == option ? .bold : .medium))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .foregroundStyle(pane == option ? RoameTheme.pink : RoameTheme.muted)
-                        .background(pane == option ? RoameTheme.pinkSoft : Color.clear)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
+    private func toggleSelect(_ id: String) {
+        withAnimation(.easeInOut(duration: 0.22)) {
+            if model.selectedFlight?.id == id {
+                model.select(nil)
+            } else {
+                model.select(id)
             }
         }
-        .padding(4)
-        .background(RoameTheme.surface)
-        .overlay(Capsule().stroke(RoameTheme.hairline, lineWidth: 1))
-        .clipShape(Capsule())
     }
 
     private func openSearch() {
@@ -154,6 +126,8 @@ private struct WindowedFlightList: View {
     @Binding var listLimit: Int
     let pageSize: Int
     let onSelect: (String) -> Void
+    let onSave: (String) -> Void
+    let onRemove: (String) -> Void
 
     var body: some View {
         let shown = Array(cards.prefix(listLimit))
@@ -163,7 +137,9 @@ private struct WindowedFlightList: View {
                     card: card,
                     selected: selectedId == card.id,
                     saved: savedIds.contains(card.id),
-                    onTap: { onSelect(card.id) }
+                    onTap: { onSelect(card.id) },
+                    onSave: { onSave(card.id) },
+                    onRemove: { onRemove(card.id) }
                 )
                 .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 .listRowSeparator(.hidden)
@@ -184,7 +160,7 @@ private struct WindowedFlightList: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .environment(\.defaultMinListRowHeight, 1)
-        .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 140) }
+        .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 100) }
     }
 }
 

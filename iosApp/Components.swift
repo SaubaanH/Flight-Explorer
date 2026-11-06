@@ -60,59 +60,84 @@ struct FlightRowView: View {
     let selected: Bool
     let saved: Bool
     let onTap: () -> Void
+    var onSave: (() -> Void)? = nil
+    var onRemove: (() -> Void)? = nil
 
     var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(card.destinationCity)
-                            .font(.system(.title3, design: .serif).weight(.semibold))
+        VStack(alignment: .leading, spacing: 0) {
+            Button(action: onTap) {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(card.destinationCity)
+                                .font(.system(.title3, design: .serif).weight(.semibold))
+                                .foregroundStyle(RoameTheme.ink)
+                            Text("\(card.origin) → \(card.destination)")
+                                .font(.subheadline)
+                                .foregroundStyle(RoameTheme.muted)
+                        }
+                        Spacer(minLength: 8)
+                        Image(systemName: saved ? "bookmark.fill" : "bookmark")
+                            .foregroundStyle(saved ? RoameTheme.pink : RoameTheme.muted)
+                            .accessibilityLabel(saved ? "Saved flight" : "Not saved")
+                    }
+
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(card.points.formatted())
+                            .font(.title2.bold())
                             .foregroundStyle(RoameTheme.ink)
-                        Text("\(card.origin) → \(card.destination)")
+                        Text("pts")
                             .font(.subheadline)
                             .foregroundStyle(RoameTheme.muted)
+                        Spacer(minLength: 8)
+                        Text(card.cabin)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(RoameTheme.pink)
                     }
-                    Spacer(minLength: 8)
-                    Image(systemName: saved ? "bookmark.fill" : "bookmark")
-                        .foregroundStyle(saved ? RoameTheme.pink : RoameTheme.muted)
-                        .accessibilityLabel(saved ? "Saved flight" : "Not saved")
-                }
 
-                HStack(alignment: .firstTextBaseline) {
-                    Text(card.points.formatted())
-                        .font(.title2.bold())
-                        .foregroundStyle(RoameTheme.ink)
-                    Text("pts")
-                        .font(.subheadline)
-                        .foregroundStyle(RoameTheme.muted)
-                    Spacer(minLength: 8)
-                    Text(card.cabin)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(RoameTheme.pink)
+                    HStack {
+                        Text(card.departureDate)
+                            .font(.caption)
+                            .foregroundStyle(RoameTheme.muted)
+                        Spacer()
+                        Text(card.program)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(RoameTheme.muted)
+                    }
                 }
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
 
-                HStack {
-                    Text(card.departureDate)
+            if selected, onSave != nil || onRemove != nil {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("\(card.originCity) → \(card.destinationCity)")
                         .font(.caption)
                         .foregroundStyle(RoameTheme.muted)
-                    Spacer()
-                    Text(card.program)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(RoameTheme.muted)
+                    if saved, let onRemove {
+                        RoamePillButton(label: "Remove", filled: false, action: onRemove)
+                            .accessibilityLabel("Remove saved flight")
+                    } else if let onSave {
+                        RoamePillButton(label: "Save", action: onSave)
+                            .accessibilityLabel("Save flight")
+                    }
                 }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 14)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(selected ? RoameTheme.pinkSoft : RoameTheme.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(selected ? RoameTheme.pink.opacity(0.35) : RoameTheme.hairline, lineWidth: 1)
-            )
         }
-        .buttonStyle(.plain)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(selected ? RoameTheme.pinkSoft : RoameTheme.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(selected ? RoameTheme.pink.opacity(0.45) : RoameTheme.hairline, lineWidth: selected ? 1.5 : 1)
+        )
+        .animation(.easeInOut(duration: 0.22), value: selected)
         .accessibilityLabel(
             "Flight \(card.origin) to \(card.destination) on \(card.departureDate), \(card.points) points"
         )

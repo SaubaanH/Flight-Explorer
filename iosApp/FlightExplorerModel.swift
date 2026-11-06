@@ -23,6 +23,8 @@ final class FlightExplorerModel: ObservableObject {
     @Published var savedCards: [FlightCard] = []
     @Published var clusters: [DestinationCluster] = []
     @Published var selectedFlight: Flight? = nil
+    /// Saved-tab MapLibre detail sheet only — Discover uses in-list expand + map route.
+    @Published var detailSheetPresented = false
     @Published var savedIds: Set<String> = []
     @Published var browsingCluster: DestinationCluster? = nil
 
@@ -107,6 +109,9 @@ final class FlightExplorerModel: ObservableObject {
         }
         clusters = snap.clusters
         selectedFlight = snap.selectedFlight
+        if snap.selectedFlight == nil {
+            detailSheetPresented = false
+        }
         browsingCluster = snap.browsingCluster
     }
 
@@ -167,7 +172,22 @@ final class FlightExplorerModel: ObservableObject {
         explorer.setDateRange(from: dateFrom, to: dateTo)
     }
 
-    func select(_ id: String?) { explorer.selectFlight(id: id) }
+    func select(_ id: String?) {
+        explorer.selectFlight(id: id)
+        if id == nil { detailSheetPresented = false }
+    }
+
+    func presentDetailSheet(for id: String) {
+        guard flight(for: id) != nil else { return }
+        detailSheetPresented = true
+        explorer.selectFlight(id: id)
+    }
+
+    func dismissDetailSheet() {
+        detailSheetPresented = false
+        explorer.selectFlight(id: nil)
+    }
+
     func openCluster(_ cluster: DestinationCluster) { explorer.openCluster(cluster: cluster) }
     func dismissCluster() { explorer.dismissCluster() }
 

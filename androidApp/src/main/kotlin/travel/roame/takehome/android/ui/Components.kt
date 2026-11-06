@@ -1,5 +1,6 @@
 package travel.roame.takehome.android.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -254,6 +255,8 @@ fun FlightRow(
     selected: Boolean,
     saved: Boolean,
     onClick: () -> Unit,
+    onSave: (() -> Unit)? = null,
+    onRemove: (() -> Unit)? = null,
 ) {
     // Flat Box + border is cheaper to scroll than Material Surface per row.
     Column(
@@ -263,65 +266,105 @@ fun FlightRow(
             .background(if (selected) RoameColors.PinkSoft else RoameColors.Surface)
             .border(
                 1.dp,
-                if (selected) RoameColors.Pink.copy(alpha = 0.35f) else RoameColors.Hairline,
+                if (selected) RoameColors.Pink.copy(alpha = 0.45f) else RoameColors.Hairline,
                 RoameShapes.Card,
             )
-            .clickable(onClick = onClick)
-            .padding(14.dp)
             .semantics {
                 contentDescription =
                     "Flight ${flight.origin} to ${flight.destination} on ${flight.departureDate}, ${flight.points} points"
             },
-        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Row(verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        flight.destinationCity,
+                        fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 18.sp,
+                        color = RoameColors.Ink,
+                    )
+                    Text(
+                        "${flight.origin} → ${flight.destination}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = RoameColors.Muted,
+                    )
+                }
+                Icon(
+                    imageVector = if (saved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                    contentDescription = if (saved) "Saved flight" else "Not saved",
+                    tint = if (saved) RoameColors.Pink else RoameColors.Muted,
+                )
+            }
+            Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    flight.destinationCity,
-                    fontFamily = FontFamily.Serif,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 18.sp,
+                    "%,d".format(flight.points),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
                     color = RoameColors.Ink,
                 )
+                Spacer(Modifier.width(6.dp))
+                Text("pts", style = MaterialTheme.typography.bodyMedium, color = RoameColors.Muted)
+                Spacer(Modifier.weight(1f))
                 Text(
-                    "${flight.origin} → ${flight.destination}",
-                    style = MaterialTheme.typography.bodyMedium,
+                    flight.cabin,
+                    color = RoameColors.Pink,
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(flight.departureDate, style = MaterialTheme.typography.bodySmall, color = RoameColors.Muted)
+                Text(
+                    flight.program,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
                     color = RoameColors.Muted,
                 )
             }
-            Icon(
-                imageVector = if (saved) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
-                contentDescription = if (saved) "Saved flight" else "Not saved",
-                tint = if (saved) RoameColors.Pink else RoameColors.Muted,
-            )
         }
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                "%,d".format(flight.points),
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp,
-                color = RoameColors.Ink,
-            )
-            Spacer(Modifier.width(6.dp))
-            Text("pts", style = MaterialTheme.typography.bodyMedium, color = RoameColors.Muted)
-            Spacer(Modifier.weight(1f))
-            Text(
-                flight.cabin,
-                color = RoameColors.Pink,
-                style = MaterialTheme.typography.labelLarge,
-            )
-        }
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(flight.departureDate, style = MaterialTheme.typography.bodySmall, color = RoameColors.Muted)
-            Text(
-                flight.program,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = FontWeight.Medium,
-                color = RoameColors.Muted,
-            )
+
+        AnimatedVisibility(visible = selected && (onSave != null || onRemove != null)) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    "${flight.originCity} → ${flight.destinationCity}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = RoameColors.Muted,
+                )
+                if (saved && onRemove != null) {
+                    OutlinedButton(
+                        onClick = onRemove,
+                        shape = RoameShapes.Pill,
+                        border = BorderStroke(1.dp, RoameColors.Pink),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = RoameColors.Pink),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = "Remove saved flight" },
+                    ) { Text("Remove", fontWeight = FontWeight.SemiBold) }
+                } else if (onSave != null) {
+                    Button(
+                        onClick = onSave,
+                        shape = RoameShapes.Pill,
+                        colors = ButtonDefaults.buttonColors(containerColor = RoameColors.Pink),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = "Save flight" },
+                    ) { Text("Save", fontWeight = FontWeight.SemiBold) }
+                }
+            }
         }
     }
 }

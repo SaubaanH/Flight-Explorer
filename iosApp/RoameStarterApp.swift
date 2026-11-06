@@ -24,13 +24,13 @@ struct RoameStarterApp: App {
                 .tint(RoameTheme.pink)
                 .background(RoameTheme.canvas.ignoresSafeArea())
 
-                // Separate inserts so scrim can fade while the panel slides up.
-                if model.selectedFlight != nil {
+                // Detail sheet is Saved-tab only (MapLibre prepare-on-tap). Discover expands in-list.
+                if model.detailSheetPresented, model.selectedFlight != nil {
                     Color.black.opacity(FlightDetailPresentation.scrimOpacity)
                         .ignoresSafeArea()
                         .onTapGesture {
                             withAnimation(FlightDetailPresentation.dismissAnimation) {
-                                model.select(nil)
+                                model.dismissDetailSheet()
                             }
                         }
                         .accessibilityLabel("Dismiss flight details")
@@ -38,7 +38,7 @@ struct RoameStarterApp: App {
                         .zIndex(99)
                 }
 
-                if let flight = model.selectedFlight {
+                if model.detailSheetPresented, let flight = model.selectedFlight {
                     VStack(spacing: 0) {
                         Spacer(minLength: 0)
                         FlightDetailSheet(
@@ -48,12 +48,12 @@ struct RoameStarterApp: App {
                             onRemove: {
                                 model.removeSaved(flight.id)
                                 withAnimation(FlightDetailPresentation.dismissAnimation) {
-                                    model.select(nil)
+                                    model.dismissDetailSheet()
                                 }
                             },
                             onDismiss: {
                                 withAnimation(FlightDetailPresentation.dismissAnimation) {
-                                    model.select(nil)
+                                    model.dismissDetailSheet()
                                 }
                             }
                         )
@@ -65,8 +65,7 @@ struct RoameStarterApp: App {
                     .zIndex(100)
                 }
             }
-            // Drive open/dismiss with the same curve; avoid stacking a second implicit animation.
-            .animation(FlightDetailPresentation.openAnimation, value: model.selectedFlight?.id == nil)
+            .animation(FlightDetailPresentation.openAnimation, value: model.detailSheetPresented)
             .task {
                 SharedRouteMapLibre.shared.prewarm()
             }

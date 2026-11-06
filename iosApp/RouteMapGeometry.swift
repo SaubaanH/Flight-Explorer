@@ -46,6 +46,25 @@ enum RouteMapGeometry {
         )
     }
 
+    /// Camera region along the short-path arc (handles Pacific / dateline spans).
+    static func region(for flight: Flight) -> MKCoordinateRegion {
+        var delta = flight.destinationLongitude - flight.originLongitude
+        while delta > 180 { delta -= 360 }
+        while delta < -180 { delta += 360 }
+
+        let midLat = (flight.originLatitude + flight.destinationLatitude) / 2
+        var midLng = flight.originLongitude + delta / 2
+        while midLng > 180 { midLng -= 360 }
+        while midLng < -180 { midLng += 360 }
+
+        let latDelta = min(max(abs(flight.destinationLatitude - flight.originLatitude) * 1.55, 12), 100)
+        let lngDelta = min(max(abs(delta) * 1.55, 12), 140)
+        return MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: midLat, longitude: midLng),
+            span: MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lngDelta)
+        )
+    }
+
     private static func splitCrossingAntimeridian(
         _ points: [CLLocationCoordinate2D]
     ) -> [[CLLocationCoordinate2D]] {

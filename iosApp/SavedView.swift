@@ -36,14 +36,14 @@ struct SavedView: View {
         }
         .padding(.horizontal)
         .background(RoameTheme.canvas.ignoresSafeArea())
-        .toolbar(model.selectedFlight != nil ? .hidden : .automatic, for: .tabBar)
+        .toolbar(model.detailSheetPresented ? .hidden : .automatic, for: .tabBar)
     }
 
     private func openDetail(_ id: String) {
         guard let flight = model.flight(for: id) else { return }
         SharedRouteMapLibre.shared.prepare(flight)
         withAnimation(FlightDetailPresentation.openAnimation) {
-            model.select(id)
+            model.presentDetailSheet(for: id)
         }
     }
 }

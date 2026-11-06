@@ -5,9 +5,10 @@ import Shared
 struct FlightMapView: View {
     @ObservedObject var model: FlightExplorerModel
     var onSelectFlight: (String) -> Void = { _ in }
+    @State private var position: MapCameraPosition = .automatic
 
     var body: some View {
-        Map {
+        Map(position: $position) {
             ForEach(model.clusters, id: \.destination) { cluster in
                 Annotation(cluster.destination, coordinate: CLLocationCoordinate2D(
                     latitude: cluster.latitude,
@@ -47,12 +48,18 @@ struct FlightMapView: View {
             MapCompass()
             MapPitchToggle()
         }
+        .onChange(of: model.selectedFlight?.id) { _, _ in
+            fitCamera()
+        }
+        .onAppear {
+            fitCamera()
+        }
         .sheet(item: Binding(
             get: { model.browsingCluster.map(ClusterSheetItem.init) },
             set: { if $0 == nil { model.dismissCluster() } }
         )) { item in
             NavigationStack {
-                List(item.cluster.flights as? [Flight] ?? [], id: \.id) { flight in
+                List(item.cluster.flights, id: \.id) { flight in
                     FlightRowView(
                         card: FlightCard(flight),
                         selected: model.selectedFlight?.id == flight.id,
@@ -60,7 +67,9 @@ struct FlightMapView: View {
                         onTap: {
                             onSelectFlight(flight.id)
                             model.dismissCluster()
-                        }
+                        },
+                        onSave: { model.save(flight) },
+                        onRemove: { model.removeSaved(flight.id) }
                     )
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
@@ -72,6 +81,14 @@ struct FlightMapView: View {
                         Button("Close") { model.dismissCluster() }
                     }
                 }
+            }
+        }
+    }
+
+    private func fitCamera() {
+        if let flight = model.selectedFlight {
+            withAnimation(.easeInOut(duration: 0.35)) {
+                position = .region(RouteMapGeometry.region(for: flight))
             }
         }
     }

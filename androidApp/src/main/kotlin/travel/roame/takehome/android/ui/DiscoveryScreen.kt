@@ -6,13 +6,11 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,23 +20,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,8 +35,6 @@ import travel.roame.takehome.model.DestinationCluster
 import travel.roame.takehome.model.Flight
 import travel.roame.takehome.model.FlightFilters
 import travel.roame.takehome.model.LoadStatus
-
-private enum class DiscoverPane { List, Map }
 
 internal val SearchSharedSpring = spring<Rect>(dampingRatio = 0.85f, stiffness = 400f)
 
@@ -70,20 +56,12 @@ fun SharedTransitionScope.DiscoveryScreen(
     onResetFilters: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var pane by remember { mutableStateOf(DiscoverPane.List) }
-    // Sheet visibility is local so dismissing detail keeps map selection/route.
-    var detailFlightId by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(selectedFlight?.id) {
-        if (selectedFlight == null) detailFlightId = null
-    }
-
-    val context = LocalContext.current
-    fun openDetail(flight: Flight) {
-        // Fit the route while the slower sheet animation runs.
-        SharedDetailRouteMap.prepare(context, flight)
-        explorer.selectFlight(flight.id)
-        detailFlightId = flight.id
+    fun toggleSelect(flight: Flight) {
+        if (selectedFlight?.id == flight.id) {
+            explorer.selectFlight(null)
+        } else {
+            explorer.selectFlight(flight.id)
+        }
     }
 
     Box(modifier.fillMaxSize()) {
@@ -142,90 +120,63 @@ fun SharedTransitionScope.DiscoveryScreen(
                 onRemoveProgram = explorer::toggleProgram,
             )
 
-            PaneToggle(pane = pane, onPane = { pane = it })
+            // Stacked: map always above the list (no List/Map tabs).
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(240.dp)
+                    .border(1.dp, RoameColors.Hairline, RoameShapes.Card),
+            ) {
+                FlightMap(
+                    clusters = clusters,
+                    selectedFlight = selectedFlight,
+                    onClusterTap = explorer::openCluster,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                when (pane) {
-                    DiscoverPane.List -> {
-                        when {
-                            filteredFlights.isEmpty() && status == LoadStatus.Loading -> {
-                                Text(
-                                    "Loading flights…",
-                                    modifier = Modifier.align(Alignment.Center),
-                                    color = RoameColors.Muted,
-                                )
-                            }
-                            filteredFlights.isEmpty() && status !is LoadStatus.Error -> {
-                                val emptyCopy = when (status) {
-                                    LoadStatus.Empty -> "No flights returned from the server."
-                                    else -> "No flights match these filters."
-                                }
-                                Text(
-                                    emptyCopy,
-                                    modifier = Modifier.align(Alignment.Center),
-                                    color = RoameColors.Muted,
-                                )
-                            }
-                            filteredFlights.isEmpty() -> {
-                                // Error with no rows — banner above already explains + Retry.
-                            }
-                            else -> {
-                                // Fresh list state when the result set identity changes — prevents the
-                                // empty→data transition from leaving LazyColumn scrolled into card #1.
-                                key(
-                                    filteredFlights.size,
-                                    filteredFlights.firstOrNull()?.id,
-                                    filteredFlights.lastOrNull()?.id,
-                                ) {
-                                    FlightResultList(
-                                        flights = filteredFlights,
-                                        selectedFlight = selectedFlight,
-                                        savedIds = savedIds,
-                                        onSelect = ::openDetail,
-                                    )
-                                }
-                            }
-                        }
+                when {
+                    filteredFlights.isEmpty() && status == LoadStatus.Loading -> {
+                        Text(
+                            "Loading flights…",
+                            modifier = Modifier.align(Alignment.Center),
+                            color = RoameColors.Muted,
+                        )
                     }
-                    DiscoverPane.Map -> {
-                        Box(
-                            Modifier
-                                .fillMaxSize()
-                                .border(1.dp, RoameColors.Hairline, RoameShapes.Card),
+                    filteredFlights.isEmpty() && status !is LoadStatus.Error -> {
+                        val emptyCopy = when (status) {
+                            LoadStatus.Empty -> "No flights returned from the server."
+                            else -> "No flights match these filters."
+                        }
+                        Text(
+                            emptyCopy,
+                            modifier = Modifier.align(Alignment.Center),
+                            color = RoameColors.Muted,
+                        )
+                    }
+                    filteredFlights.isEmpty() -> {
+                        // Error with no rows — banner above already explains + Retry.
+                    }
+                    else -> {
+                        key(
+                            filteredFlights.size,
+                            filteredFlights.firstOrNull()?.id,
+                            filteredFlights.lastOrNull()?.id,
                         ) {
-                            FlightMap(
-                                clusters = clusters,
+                            FlightResultList(
+                                flights = filteredFlights,
                                 selectedFlight = selectedFlight,
-                                onClusterTap = explorer::openCluster,
-                                modifier = Modifier.fillMaxSize(),
+                                savedIds = savedIds,
+                                onSelect = ::toggleSelect,
+                                onSave = explorer::saveFlight,
+                                onRemove = explorer::removeSaved,
                             )
                         }
                     }
                 }
-
             }
         }
-    }
-
-    val detailFlight = detailFlightId?.let { id ->
-        filteredFlights.firstOrNull { it.id == id }
-            ?: selectedFlight?.takeIf { it.id == id }
-    }
-    detailFlight?.let { flight ->
-        FlightDetailSheet(
-            flight = flight,
-            saved = flight.id in savedIds,
-            onSave = { explorer.saveFlight(flight) },
-            onRemove = {
-                explorer.removeSaved(flight.id)
-                detailFlightId = null
-                explorer.selectFlight(null)
-            },
-            onDismiss = {
-                detailFlightId = null
-                explorer.selectFlight(null)
-            },
-        )
     }
 
     browsingCluster?.let { cluster ->
@@ -254,9 +205,11 @@ fun SharedTransitionScope.DiscoveryScreen(
                             selected = flight.id == selectedFlight?.id,
                             saved = flight.id in savedIds,
                             onClick = {
-                                openDetail(flight)
+                                toggleSelect(flight)
                                 explorer.dismissCluster()
                             },
+                            onSave = { explorer.saveFlight(flight) },
+                            onRemove = { explorer.removeSaved(flight.id) },
                         )
                     }
                 }
@@ -276,9 +229,9 @@ private fun FlightResultList(
     selectedFlight: Flight?,
     savedIds: Set<String>,
     onSelect: (Flight) -> Unit,
+    onSave: (Flight) -> Unit,
+    onRemove: (String) -> Unit,
 ) {
-    // LazyColumn virtualizes rows; windowing + scrollToItem races caused startup to land
-    // mid-first-card after the empty→loaded transition.
     LazyColumn(
         state = rememberLazyListState(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -294,41 +247,9 @@ private fun FlightResultList(
                 selected = flight.id == selectedFlight?.id,
                 saved = flight.id in savedIds,
                 onClick = { onSelect(flight) },
+                onSave = { onSave(flight) },
+                onRemove = { onRemove(flight.id) },
             )
-        }
-    }
-}
-
-@Composable
-private fun PaneToggle(pane: DiscoverPane, onPane: (DiscoverPane) -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoameShapes.Pill)
-            .background(RoameColors.Surface)
-            .border(1.dp, RoameColors.Hairline, RoameShapes.Pill)
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        DiscoverPane.entries.forEach { option ->
-            val selected = pane == option
-            Surface(
-                onClick = { onPane(option) },
-                shape = RoameShapes.Pill,
-                color = if (selected) RoameColors.PinkSoft else Color.Transparent,
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(
-                    option.name,
-                    Modifier
-                        .padding(vertical = 10.dp)
-                        .fillMaxWidth(),
-                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    color = if (selected) RoameColors.Pink else RoameColors.Muted,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                    style = MaterialTheme.typography.labelLarge,
-                )
-            }
         }
     }
 }
